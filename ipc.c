@@ -1,0 +1,108 @@
+#include "common.h"
+#include "ipc.h"
+#include <sys/mman.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <time.h>
+
+#define SHM_NAME    "/cc_shm_" SRN
+#define SEM_READY   "/cc_sem_ready_" SRN
+#define SEM_DONE    "/cc_sem_done_" SRN
+#define WAIT_SECS   5
+
+typedef struct {
+    int job_id;
+    int burst;
+    char name[64];
+    char response[128];
+} Packet;
+
+void ipc_cleanup(void) {
+    shm_unlink(SHM_NAME);
+    sem_unlink(SEM_READY);
+    sem_unlink(SEM_DONE);
+}
+
+int ipc_objects_remaining(void) {
+    int n = 0;
+    int fd = shm_open(SHM_NAME, O_RDONLY, 0);
+    if (fd != -1) { close(fd); n++; }
+
+    const char *names[] = { SEM_READY, SEM_DONE };
+    for (int i = 0; i < 2; i++) {
+        sem_t *s = sem_open(names[i], 0);
+        if (s != SEM_FAILED) { sem_close(s); n++; }
+    }
+    return n;
+}
+
+/* Wait with a timeout so a dead peer can never hang the demo. */
+static int wait_sem(sem_t *s) {
+    struct timespec ts;
+    int r;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += WAIT_SECS;
+    do { r = sem_timedwait(s, &ts); } while (r == -1 && errno == EINTR);
+    return r;
+}
+
+static void child_main(Packet *pkt, sem_t *ready, sem_t *done) {
+    if (wait_sem(ready) == -1) child_exit(1);
+    printf("  [Child %d] read from shared memory: job %d '%s', burst %d\n",
+           getpid(), pkt->job_id, pkt->name, pkt->burst);
+    snprintf(pkt->response, sizeof(pkt->response), "job %d executed by child %d", pkt->job_id, getpid());
+    sem_post(done);
+    child_exit(0);
+}
+
+int ipc_demo(void) {
+    int rc = 1, fd = -1, status = 0;
+    pid_t pid;
+    Packet *pkt = MAP_FAILED;
+    sem_t *ready = SEM_FAILED, *done = SEM_FAILED;
+
+    printf("\n=== Shared memory + named semaphore IPC ===\n");
+    ipc_cleanup();      /* remove leftovers from an earlier crashed run */
+
+    fd = shm_open(SHM_NAME, O_CREAT | O_EXCL | O_RDWR, 0600);
+    if (fd == -1) { perror("shm_open"); goto out; }
+    if (ftruncate(fd, sizeof(Packet)) == -1) { perror("ftruncate"); goto out; }
+    pkt = mmap(NULL, sizeof(Packet), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (pkt == MAP_FAILED) { perror("mmap"); goto out; }
+    ready = sem_open(SEM_READY, O_CREAT | O_EXCL, 0600, 0);
+    done = sem_open(SEM_DONE, O_CREAT | O_EXCL, 0600, 0);
+    if (ready == SEM_FAILED || done == SEM_FAILED) { perror("sem_open"); goto out; }
+    printf("[Parent %d] created %s, %s, %s\n", getpid(), SHM_NAME, SEM_READY, SEM_DONE);
+
+    pid = fork_flushed();
+    if (pid < 0) { perror("fork"); goto out; }
+    if (pid == 0) child_main(pkt, ready, done);
+
+    pkt->job_id = 101;
+    pkt->burst = 5;
+    snprintf(pkt->name, sizeof(pkt->name), "Fluid_Dynamics_Sim");
+    printf("[Parent %d] wrote job to shared memory, posting %s\n", getpid(), SEM_READY);
+    sem_post(ready);
+
+    if (wait_sem(done) == -1) {
+        perror("[Parent] waiting for child");
+        kill(pid, SIGKILL);
+    } else {
+        printf("[Parent %d] child replied via shared memory: \"%s\"\n", getpid(), pkt->response);
+    }
+    while (waitpid(pid, &status, 0) == -1 && errno == EINTR) {}
+    printf("[Parent %d] child %d reaped, exit status %d\n", getpid(), pid, WEXITSTATUS(status));
+    rc = (WIFEXITED(status) && WEXITSTATUS(status) == 0 && pkt->response[0] != '\0') ? 0 : 1;
+
+out:
+    if (pkt != MAP_FAILED) munmap(pkt, sizeof(Packet));
+    if (fd != -1) close(fd);
+    if (ready != SEM_FAILED) sem_close(ready);
+    if (done != SEM_FAILED) sem_close(done);
+    ipc_cleanup();
+    int left = ipc_objects_remaining();
+    printf("[Cleanup] shared memory and semaphores unlinked; objects remaining: %d\n", left);
+    return (rc == 0 && left == 0) ? 0 : 1;
+}
