@@ -4,10 +4,30 @@
 
 typedef struct { int job_id, start, end; } Slice;      /* job_id 0 = CPU idle */
 typedef struct { Slice s[MAX_SLICES]; int count; } Timeline;
-typedef struct { int items[MAX_JOBS + 1]; int head, tail; } Queue;
+typedef struct { int items[128]; int head, tail; } Queue;
 typedef enum { FCFS, PRIORITY, RR } Policy;
 
 static const char *policy_names[] = { "FCFS", "Priority (non-preemptive)", "Round Robin" };
+static int current_quantum = TIME_QUANTUM;
+
+int scheduler_set_quantum(int q) {
+    if (q < 1 || q > 100) return 1;
+    current_quantum = q;
+    return 0;
+}
+
+int scheduler_get_quantum(void) {
+    return current_quantum;
+}
+
+int scheduler_input_quantum(void) {
+    printf("Current Round Robin time quantum: %d\n", current_quantum);
+    int q;
+    if (!read_int("Enter new time quantum (1-100): ", 1, 100, &q)) return 1;
+    current_quantum = q;
+    printf("Round Robin time quantum set to %d.\n", current_quantum);
+    return 0;
+}
 
 /* ---------- workload ---------- */
 
@@ -38,6 +58,58 @@ int scheduler_input_jobs(Job jobs[], int *n) {
     memcpy(jobs, tmp, count * sizeof(Job));
     *n = count;
     printf("%d jobs registered.\n", count);
+    return 0;
+}
+
+int scheduler_add_job(Job jobs[], int *n) {
+    if (*n >= MAX_JOBS) {
+        printf("Cannot add job: maximum capacity of %d jobs reached.\n", MAX_JOBS);
+        return 1;
+    }
+    Job j;
+    j.id = (*n > 0) ? (jobs[*n - 1].id + 1) : 1;
+    for (int i = 0; i < *n; i++) {
+        if (jobs[i].id >= j.id) j.id = jobs[i].id + 1;
+    }
+
+    printf("\nAdding Job %d:\n", j.id);
+    char prompt[64];
+    snprintf(prompt, sizeof(prompt), "  Arrival time (0-%d): ", MAX_ARRIVAL);
+    if (!read_int(prompt, 0, MAX_ARRIVAL, &j.arrival)) return 1;
+    snprintf(prompt, sizeof(prompt), "  CPU burst (1-%d): ", MAX_BURST);
+    if (!read_int(prompt, 1, MAX_BURST, &j.burst)) return 1;
+    if (!read_int("  Priority (1-99, lower = higher priority): ", 1, 99, &j.priority)) return 1;
+    strcpy(j.status, "READY");
+
+    jobs[*n] = j;
+    (*n)++;
+    printf("Job %d added successfully (total workload: %d jobs).\n", j.id, *n);
+    scheduler_display_jobs(jobs, *n);
+    return 0;
+}
+
+int scheduler_edit_job_priority(Job jobs[], int n) {
+    if (n <= 0) {
+        printf("No jobs available. Load or input jobs first.\n");
+        return 1;
+    }
+    scheduler_display_jobs(jobs, n);
+    int target_id;
+    if (!read_int("\nEnter Job ID to modify priority: ", 1, 1000, &target_id)) return 1;
+    int idx = -1;
+    for (int i = 0; i < n; i++) {
+        if (jobs[i].id == target_id) { idx = i; break; }
+    }
+    if (idx == -1) {
+        printf("Job %d not found in current workload.\n", target_id);
+        return 1;
+    }
+    printf("Current priority of Job %d is %d.\n", target_id, jobs[idx].priority);
+    int new_pri;
+    if (!read_int("Enter new priority (1-99, lower = higher priority): ", 1, 99, &new_pri)) return 1;
+    jobs[idx].priority = new_pri;
+    printf("Priority of Job %d updated to %d.\n", target_id, new_pri);
+    scheduler_display_jobs(jobs, n);
     return 0;
 }
 
@@ -113,21 +185,29 @@ static void simulate_nonpreemptive(Job jobs[], int n, Policy p, Metrics m[], Tim
 
 static void queue_push(Queue *q, int v) {
     q->items[q->tail] = v;
-    q->tail = (q->tail + 1) % (MAX_JOBS + 1);
+    q->tail = (q->tail + 1) % 128;
 }
 
 static int queue_pop(Queue *q) {
     int v = q->items[q->head];
-    q->head = (q->head + 1) % (MAX_JOBS + 1);
+    q->head = (q->head + 1) % 128;
     return v;
 }
 
 static void admit_arrivals(const Job jobs[], int n, int now, bool admitted[], Queue *q) {
-    for (int i = 0; i < n; i++) {
-        if (!admitted[i] && jobs[i].arrival <= now) {
-            admitted[i] = true;
-            queue_push(q, i);
+    while (1) {
+        int best = -1;
+        for (int i = 0; i < n; i++) {
+            if (!admitted[i] && jobs[i].arrival <= now) {
+                if (best < 0 || jobs[i].arrival < jobs[best].arrival ||
+                    (jobs[i].arrival == jobs[best].arrival && jobs[i].id < jobs[best].id)) {
+                    best = i;
+                }
+            }
         }
+        if (best < 0) break;
+        admitted[best] = true;
+        queue_push(q, best);
     }
 }
 
@@ -144,13 +224,14 @@ static void simulate_rr(Job jobs[], int n, Metrics m[], Timeline *t) {
         admit_arrivals(jobs, n, now, admitted, &q);
         if (q.head == q.tail) {
             int wake = earliest_arrival(jobs, admitted, n);
+            if (wake < 0) break;
             add_slice(t, 0, now, wake);
             now = wake;
             continue;
         }
 
         int cur = queue_pop(&q);
-        int run = remaining[cur] < TIME_QUANTUM ? remaining[cur] : TIME_QUANTUM;
+        int run = remaining[cur] < current_quantum ? remaining[cur] : current_quantum;
         strcpy(jobs[cur].status, "RUNNING");
         add_slice(t, jobs[cur].id, now, now + run);
         now += run;
@@ -218,7 +299,7 @@ static int run_policy(Job jobs[], int n, Policy p) {
     if (p == PRIORITY) {
         printf("Tie-break: lower number = higher priority; equal priority -> earlier arrival -> lower job ID.\n");
     } else if (p == RR) {
-        printf("Time quantum = %d. New arrivals join the queue before a preempted job is re-queued.\n", TIME_QUANTUM);
+        printf("Time quantum = %d. New arrivals join the queue before a preempted job is re-queued.\n", current_quantum);
     } else {
         printf("Tie-break: equal arrival -> lower job ID.\n");
     }
@@ -244,7 +325,7 @@ int scheduler_compare_all(const Job jobs[], int n) {
         printf("No jobs to compare. Load or input jobs first.\n");
         return 1;
     }
-    printf("\n=== Policy comparison (same job set, RR quantum = %d) ===\n", TIME_QUANTUM);
+    printf("\n=== Policy comparison (same job set, RR quantum = %d) ===\n", current_quantum);
     printf("| Policy                    | Avg turnaround | Avg waiting |\n");
     for (int p = 0; p < 3; p++) {
         memcpy(copy, jobs, n * sizeof(Job));

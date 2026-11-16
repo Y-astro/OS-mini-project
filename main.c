@@ -17,38 +17,44 @@ typedef struct {
     bool in_demo;                   /* included in the integrated demonstration */
 } Command;
 
-static int cmd_input(void)      { return scheduler_input_jobs(jobs, &num_jobs); }
-static int cmd_default(void)    {
+static int cmd_input(void)        { return scheduler_input_jobs(jobs, &num_jobs); }
+static int cmd_default(void)      {
     scheduler_load_default_jobs(jobs, &num_jobs);
     printf("Loaded %d default jobs.\n", num_jobs);
     return 0;
 }
-static int cmd_show(void)       { scheduler_display_jobs(jobs, num_jobs); return 0; }
-static int cmd_fcfs(void)       { return scheduler_run_fcfs(jobs, num_jobs); }
-static int cmd_rr(void)         { return scheduler_run_rr(jobs, num_jobs); }
-static int cmd_priority(void)   { return scheduler_run_priority(jobs, num_jobs); }
-static int cmd_compare(void)    { return scheduler_compare_all(jobs, num_jobs); }
+static int cmd_add(void)          { return scheduler_add_job(jobs, &num_jobs); }
+static int cmd_edit_pri(void)     { return scheduler_edit_job_priority(jobs, num_jobs); }
+static int cmd_quantum(void)      { return scheduler_input_quantum(); }
+static int cmd_show(void)         { scheduler_display_jobs(jobs, num_jobs); return 0; }
+static int cmd_fcfs(void)         { return scheduler_run_fcfs(jobs, num_jobs); }
+static int cmd_rr(void)           { return scheduler_run_rr(jobs, num_jobs); }
+static int cmd_priority(void)     { return scheduler_run_priority(jobs, num_jobs); }
+static int cmd_compare(void)      { return scheduler_compare_all(jobs, num_jobs); }
 static int cmd_demo(void);
 static int cmd_cleanup(void);
 
 static const Command commands[] = {
-    { "input",         "Input custom jobs",                      cmd_input,            false },
-    { "default",       "Load default workload (5 jobs)",         cmd_default,          false },
-    { "show",          "Display current jobs",                   cmd_show,             true  },
-    { "fcfs",          "FCFS scheduling",                        cmd_fcfs,             true  },
-    { "rr",            "Round Robin scheduling",                 cmd_rr,               true  },
-    { "priority",      "Priority scheduling (non-preemptive)",   cmd_priority,         true  },
-    { "compare",       "Compare all scheduling policies",        cmd_compare,          true  },
-    { "logger",        "Producer-consumer logger (pthreads)",    logger_demo,          true  },
-    { "ipc",           "Shared memory + semaphore IPC",          ipc_demo,             true  },
-    { "banker-safe",   "Banker's algorithm: safe state",         banker_demo_safe,     true  },
-    { "banker-unsafe", "Banker's algorithm: unsafe state",       banker_demo_unsafe,   true  },
-    { "banker-input",  "Banker's algorithm: enter your own state", banker_input_and_check, false },
-    { "worker-ok",     "Worker process: normal completion",      worker_demo_normal,   true  },
-    { "worker-fail",   "Worker process: simulated failure",      worker_demo_failure,  true  },
-    { "rlimit",        "Resource limit demo (RLIMIT_CPU)",       rlimit_demo_cpu,      true  },
-    { "demo",          "Integrated demonstration",               cmd_demo,             false },
-    { "cleanup",       "Verify cleanup of threads/IPC/processes", cmd_cleanup,         false },
+    { "input",         "Input custom jobs (replace current list)",cmd_input,         false },
+    { "default",       "Load default workload (5 jobs)",          cmd_default,       false },
+    { "add-job",       "Add a new job to current workload",       cmd_add,           false },
+    { "edit-priority", "Change an existing job's priority",       cmd_edit_pri,      false },
+    { "set-quantum",   "Set Round Robin time quantum",            cmd_quantum,       false },
+    { "show",          "Display current jobs",                    cmd_show,          true  },
+    { "fcfs",          "FCFS scheduling",                         cmd_fcfs,          true  },
+    { "rr",            "Round Robin scheduling",                  cmd_rr,            true  },
+    { "priority",      "Priority scheduling (non-preemptive)",    cmd_priority,      true  },
+    { "compare",       "Compare all scheduling policies",         cmd_compare,       true  },
+    { "logger",        "Producer-consumer logger (pthreads)",     logger_demo,       true  },
+    { "ipc",           "Shared memory + semaphore IPC",           ipc_demo,          true  },
+    { "banker-safe",   "Banker's algorithm: safe state",          banker_demo_safe,  true  },
+    { "banker-unsafe", "Banker's algorithm: unsafe state",        banker_demo_unsafe,true  },
+    { "banker-input",  "Banker's algorithm: enter your own state",banker_input_and_check, false },
+    { "worker-ok",     "Worker process: normal completion",       worker_demo_normal,true  },
+    { "worker-fail",   "Worker process: simulated failure",       worker_demo_failure,true },
+    { "rlimit",        "Resource limit demo (RLIMIT_CPU)",        rlimit_demo_cpu,   true  },
+    { "demo",          "Integrated demonstration",                cmd_demo,          false },
+    { "cleanup",       "Verify cleanup of threads/IPC/processes", cmd_cleanup,       false },
 };
 #define NUM_COMMANDS ((int)(sizeof(commands) / sizeof(commands[0])))
 
@@ -91,7 +97,7 @@ static int cmd_demo(void) {
 }
 
 static void print_banner(void) {
-    printf("\nCampusCompute - Job Scheduling and Resource Management | %s\n", SRN);
+    printf("\nCampusCompute - Job Scheduling and Resource Management | %s\n", get_srn());
 }
 
 static void print_menu(void) {
@@ -108,7 +114,7 @@ static void run_interactive(void) {
     print_banner();
     print_menu();
     while (1) {
-        printf("\nCampusCompute [%s] >> ", SRN);
+        printf("\nCampusCompute [%s] >> ", get_srn());
         if (!fgets(line, sizeof(line), stdin)) break;
         line[strcspn(line, "\r\n")] = '\0';
         if (line[0] == '\0') continue;
@@ -143,7 +149,23 @@ int main(int argc, char *argv[]) {
         print_menu();
         return 0;
     }
-    if (argc == 2 && strncmp(argv[1], "--", 2) == 0) {
+    if (argc >= 2 && strncmp(argv[1], "--", 2) == 0) {
+        if (strcmp(argv[1] + 2, "quantum") == 0 || strcmp(argv[1] + 2, "set-quantum") == 0) {
+            if (argc >= 3) {
+                int q = atoi(argv[2]);
+                if (q >= 1 && q <= 100) {
+                    scheduler_set_quantum(q);
+                    printf("Round Robin time quantum set to %d.\n", q);
+                    return 0;
+                }
+            }
+            return cmd_quantum();
+        }
+        if (strcmp(argv[1] + 2, "rr") == 0 && argc >= 3) {
+            int q = atoi(argv[2]);
+            if (q >= 1 && q <= 100) scheduler_set_quantum(q);
+            return cmd_rr();
+        }
         for (int i = 0; i < NUM_COMMANDS; i++) {
             if (strcmp(argv[1] + 2, commands[i].flag) == 0) return commands[i].run();
         }

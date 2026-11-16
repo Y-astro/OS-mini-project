@@ -8,7 +8,8 @@
 #include <stdbool.h>
 #include <errno.h>
 
-#define SRN            "PES2UG25CS586"
+#define DEFAULT_SRN    "PES2UG25CS617"
+#define PARTNER_SRN    "PES2UG25CS586"
 #define MAX_JOBS       20
 #define MAX_ARRIVAL    1000
 #define MAX_BURST      100
@@ -18,6 +19,12 @@
 #define LOG_QUEUE_SIZE 8
 #define LOG_MSG_LEN    256
 #define LOG_FILE_NAME  "campuscompute.log"
+
+/* Returns SRN from environment variable if set (export SRN=...), otherwise DEFAULT_SRN */
+static inline const char *get_srn(void) {
+    const char *env = getenv("SRN");
+    return (env && *env) ? env : DEFAULT_SRN;
+}
 
 typedef struct {
     int id;

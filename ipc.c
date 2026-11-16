@@ -7,10 +7,19 @@
 #include <signal.h>
 #include <time.h>
 
-#define SHM_NAME    "/cc_shm_" SRN
-#define SEM_READY   "/cc_sem_ready_" SRN
-#define SEM_DONE    "/cc_sem_done_" SRN
 #define WAIT_SECS   5
+
+static void get_shm_name(char *buf, size_t sz) {
+    snprintf(buf, sz, "/cc_shm_%s", get_srn());
+}
+
+static void get_sem_ready_name(char *buf, size_t sz) {
+    snprintf(buf, sz, "/cc_sem_ready_%s", get_srn());
+}
+
+static void get_sem_done_name(char *buf, size_t sz) {
+    snprintf(buf, sz, "/cc_sem_done_%s", get_srn());
+}
 
 typedef struct {
     int job_id;
@@ -20,21 +29,31 @@ typedef struct {
 } Packet;
 
 void ipc_cleanup(void) {
-    shm_unlink(SHM_NAME);
-    sem_unlink(SEM_READY);
-    sem_unlink(SEM_DONE);
+    char name[128];
+    get_shm_name(name, sizeof(name));
+    shm_unlink(name);
+    get_sem_ready_name(name, sizeof(name));
+    sem_unlink(name);
+    get_sem_done_name(name, sizeof(name));
+    sem_unlink(name);
 }
 
 int ipc_objects_remaining(void) {
     int n = 0;
-    int fd = shm_open(SHM_NAME, O_RDONLY, 0);
+    char name[128];
+
+    get_shm_name(name, sizeof(name));
+    int fd = shm_open(name, O_RDONLY, 0);
     if (fd != -1) { close(fd); n++; }
 
-    const char *names[] = { SEM_READY, SEM_DONE };
-    for (int i = 0; i < 2; i++) {
-        sem_t *s = sem_open(names[i], 0);
-        if (s != SEM_FAILED) { sem_close(s); n++; }
-    }
+    get_sem_ready_name(name, sizeof(name));
+    sem_t *s1 = sem_open(name, 0);
+    if (s1 != SEM_FAILED) { sem_close(s1); n++; }
+
+    get_sem_done_name(name, sizeof(name));
+    sem_t *s2 = sem_open(name, 0);
+    if (s2 != SEM_FAILED) { sem_close(s2); n++; }
+
     return n;
 }
 
@@ -62,19 +81,24 @@ int ipc_demo(void) {
     pid_t pid;
     Packet *pkt = MAP_FAILED;
     sem_t *ready = SEM_FAILED, *done = SEM_FAILED;
+    char shm_name[128], sem_ready_name[128], sem_done_name[128];
+
+    get_shm_name(shm_name, sizeof(shm_name));
+    get_sem_ready_name(sem_ready_name, sizeof(sem_ready_name));
+    get_sem_done_name(sem_done_name, sizeof(sem_done_name));
 
     printf("\n=== Shared memory + named semaphore IPC ===\n");
     ipc_cleanup();      /* remove leftovers from an earlier crashed run */
 
-    fd = shm_open(SHM_NAME, O_CREAT | O_EXCL | O_RDWR, 0600);
+    fd = shm_open(shm_name, O_CREAT | O_EXCL | O_RDWR, 0600);
     if (fd == -1) { perror("shm_open"); goto out; }
     if (ftruncate(fd, sizeof(Packet)) == -1) { perror("ftruncate"); goto out; }
     pkt = mmap(NULL, sizeof(Packet), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (pkt == MAP_FAILED) { perror("mmap"); goto out; }
-    ready = sem_open(SEM_READY, O_CREAT | O_EXCL, 0600, 0);
-    done = sem_open(SEM_DONE, O_CREAT | O_EXCL, 0600, 0);
+    ready = sem_open(sem_ready_name, O_CREAT | O_EXCL, 0600, 0);
+    done = sem_open(sem_done_name, O_CREAT | O_EXCL, 0600, 0);
     if (ready == SEM_FAILED || done == SEM_FAILED) { perror("sem_open"); goto out; }
-    printf("[Parent %d] created %s, %s, %s\n", getpid(), SHM_NAME, SEM_READY, SEM_DONE);
+    printf("[Parent %d] created %s, %s, %s\n", getpid(), shm_name, sem_ready_name, sem_done_name);
 
     pid = fork_flushed();
     if (pid < 0) { perror("fork"); goto out; }
@@ -83,7 +107,7 @@ int ipc_demo(void) {
     pkt->job_id = 101;
     pkt->burst = 5;
     snprintf(pkt->name, sizeof(pkt->name), "Fluid_Dynamics_Sim");
-    printf("[Parent %d] wrote job to shared memory, posting %s\n", getpid(), SEM_READY);
+    printf("[Parent %d] wrote job to shared memory, posting %s\n", getpid(), sem_ready_name);
     sem_post(ready);
 
     if (wait_sem(done) == -1) {
