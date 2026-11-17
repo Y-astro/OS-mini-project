@@ -26,6 +26,7 @@ int rlimit_demo_cpu(void) {
 
   if (pid == 0) {
     /* Child applies the limit to itself */
+    signal(SIGXCPU, SIG_DFL);
     if (setrlimit(RLIMIT_CPU, &limit) != 0) {
       perror("setrlimit");
       child_exit(1);
@@ -39,6 +40,7 @@ int rlimit_demo_cpu(void) {
     volatile unsigned long long spin = 0;
     while (spin < ~0ULL)
       spin++;
+    child_exit(1); /* never fall through into the parent's waitpid path */
   }
 
   /* Step 4: Parent waits for child termination */

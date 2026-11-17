@@ -13,6 +13,10 @@ void scheduler_display_jobs(const Job jobs[], int n);
 
 int scheduler_set_quantum(int q);
 int scheduler_get_quantum(void);
+void scheduler_set_trace(bool enabled);
+bool scheduler_get_trace(void);
+void scheduler_set_logging(bool enabled);
+bool scheduler_get_logging(void);
 int scheduler_input_quantum(void);
 
 /* Each returns 0 on success, 1 if there are no jobs to schedule. */

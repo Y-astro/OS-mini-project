@@ -1,5 +1,7 @@
 # CampusCompute — Demo Walkthrough & File Guide
 
+> **Revised fork:** Start with [VIVA_QUICKSTART.md](VIVA_QUICKSTART.md) for current commands, metrics, tests and limitations. Use `--help` for current menu numbering. IPC names are PID-scoped, cleanup is process-local, and `make demo` is a smoke test; use `make test` for independent regressions. An unsafe state does not prove deadlock.
+
 One file to demo from and to explain every source file.
 
 ## 1. Setup (10 seconds)
@@ -12,7 +14,7 @@ export SRN=PES2UG25CS586    # banner/prompt shows this SRN (optional; has a defa
 
 | Step | Command | What to say | Concept |
 |---|---|---|---|
-| 1 | `make demo` | "Every module runs and asserts its own result; the summary is real PASS/FAIL, ending with a cleanup check." | integration |
+| 1 | `make demo` | "Modules return smoke-test status; use make test for independent assertions." | integration |
 | 2 | `./campuscompute --jobs samples/jobs_lab.txt --compare` | "Workload comes from a file, nothing hardcoded. Compare shows avg turnaround and waiting for each policy." | FR1, FR2 |
 | 3 | `./campuscompute --jobs samples/jobs_lab.txt --rr 3` | "Quantum is configurable; see the Gantt chart change." Verify one row by hand on paper. | Round Robin |
 | 4 | `SEED=7 ./campuscompute --random 8 --compare` | "Random workload; seed printed so it's reproducible." | FR2 |

@@ -52,6 +52,10 @@ static int run_worker_with_code(bool simulate_failure, int failure_code) {
     return 1;
   }
 
+  if (!WIFEXITED(status)) {
+    fprintf(stderr, "[Coordinator] unexpected worker status\n");
+    return 1;
+  }
   int code = WEXITSTATUS(status);
   printf("[Coordinator] worker %d exited with status %d -> %s\n", pid, code,
          code == 0 ? "COMPLETED"

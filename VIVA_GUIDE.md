@@ -1,4 +1,6 @@
 # CampusCompute — Comprehensive Viva Voce & Demonstration Guide
+
+> **Revised fork:** Start with [VIVA_QUICKSTART.md](VIVA_QUICKSTART.md) for current commands, metrics, tests and limitations. Use `--help` for current menu numbering. IPC names are PID-scoped, cleanup is process-local, and `make demo` is a smoke test; use `make test` for independent regressions. An unsafe state does not prove deadlock.
 **Operating Systems (UE25CS242A) — Level 3 Mini-Project**
 
 ---

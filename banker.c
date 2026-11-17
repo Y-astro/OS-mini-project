@@ -1,5 +1,6 @@
 #include "banker.h"
 #include "common.h"
+#include <ctype.h>
 
 typedef int Matrix[MAX_PROCESSES][MAX_RESOURCES];
 
@@ -95,7 +96,7 @@ static bool is_safe(const State *s, Matrix need, int seq[]) {
       break;
   }
 
-  /* Step 4: If not all processes finished, report blocked processes (deadlock)
+  /* Step 4: If not all processes finished, report unfinished processes (unsafe, not necessarily deadlocked)
    */
   if (count < s->p) {
     printf("  No remaining process has Need <= Work. Blocked: ");
@@ -183,19 +184,26 @@ int banker_input_and_check(void) {
   return 0;
 }
 
-/* Reads whitespace-separated integers, skipping '#' comment lines. */
-static bool next_int(FILE *f, int *out) {
+/* Strict bounded token reader: 1 = value, 0 = EOF, -1 = malformed. */
+static int next_int(FILE *f, int *out) {
   int c;
-  while ((c = fgetc(f)) != EOF) {
+  do {
+    c = fgetc(f);
     if (c == '#') {
-      while ((c = fgetc(f)) != EOF && c != '\n')
-        ;
-    } else if (c == '-' || (c >= '0' && c <= '9')) {
-      ungetc(c, f);
-      return fscanf(f, "%d", out) == 1;
+      while ((c = fgetc(f)) != EOF && c != '\n') {}
     }
+  } while (c != EOF && isspace((unsigned char)c));
+  if (c == EOF) return ferror(f) ? -1 : 0;
+  char token[64];
+  size_t n = 0;
+  while (c != EOF && !isspace((unsigned char)c) && c != '#') {
+    if (n + 1 >= sizeof(token)) return -1;
+    token[n++] = (char)c;
+    c = fgetc(f);
   }
-  return false;
+  if (c == '#') ungetc(c, f);
+  token[n] = '\0';
+  return parse_int(token, 0, 100, out) ? 1 : -1;
 }
 
 /* File format: P R, then P rows of Allocation, P rows of Max, then Available.
@@ -208,16 +216,18 @@ int banker_from_file(const char *path) {
   }
   State s;
   memset(&s, 0, sizeof(s));
-  bool ok = next_int(f, &s.p) && next_int(f, &s.r) && s.p >= 1 &&
+  bool ok = next_int(f, &s.p) == 1 && next_int(f, &s.r) == 1 && s.p >= 1 &&
             s.p <= MAX_PROCESSES && s.r >= 1 && s.r <= MAX_RESOURCES;
   for (int i = 0; ok && i < s.p; i++)
     for (int j = 0; ok && j < s.r; j++)
-      ok = next_int(f, &s.alloc[i][j]) && s.alloc[i][j] >= 0;
+      ok = next_int(f, &s.alloc[i][j]) == 1 && s.alloc[i][j] >= 0;
   for (int i = 0; ok && i < s.p; i++)
     for (int j = 0; ok && j < s.r; j++)
-      ok = next_int(f, &s.max[i][j]) && s.max[i][j] >= s.alloc[i][j];
+      ok = next_int(f, &s.max[i][j]) == 1 && s.max[i][j] >= s.alloc[i][j];
   for (int j = 0; ok && j < s.r; j++)
-    ok = next_int(f, &s.avail[j]) && s.avail[j] >= 0;
+    ok = next_int(f, &s.avail[j]) == 1 && s.avail[j] >= 0;
+  int extra;
+  if (ok) ok = next_int(f, &extra) == 0;
   fclose(f);
   if (!ok) {
     printf("[Error] %s: malformed state (need P R, Alloc, Max, Available; "

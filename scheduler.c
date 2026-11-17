@@ -1,6 +1,7 @@
 #include "scheduler.h"
 #include "logger.h"
 #include <time.h>
+#include <ctype.h>
 
 #define MAX_SLICES 2048
 
@@ -20,6 +21,23 @@ typedef enum { FCFS, PRIORITY, RR } Policy;
 static const char *policy_names[] = {"FCFS", "Priority (non-preemptive)",
                                      "Round Robin"};
 static int current_quantum = TIME_QUANTUM;
+static bool trace_enabled, logging_enabled;
+void scheduler_set_trace(bool enabled) { trace_enabled = enabled; }
+bool scheduler_get_trace(void) { return trace_enabled; }
+void scheduler_set_logging(bool enabled) { logging_enabled = enabled; }
+bool scheduler_get_logging(void) { return logging_enabled; }
+
+/* Report actual transitions, not a prewritten transcript. */
+static void event(const char *action, int id, int now) {
+  char msg[LOG_MSG_LEN];
+  if (id)
+    snprintf(msg, sizeof(msg), "[Scheduler] t=%d J%d %s", now, id, action);
+  else
+    snprintf(msg, sizeof(msg), "[Scheduler] t=%d CPU %s", now, action);
+  if (trace_enabled)
+    puts(msg);
+  logger_log(msg);
+}
 
 int scheduler_set_quantum(int q) {
   if (q < 1 || q > 100)
@@ -65,16 +83,25 @@ int scheduler_load_file(Job jobs[], int *n, const char *path) {
   char line[256];
   while (fgets(line, sizeof(line), f)) {
     lineno++;
+    if (!strchr(line, '\n') && !feof(f)) {
+      fprintf(stderr, "[Error] %s:%d: line too long\n", path, lineno);
+      fclose(f);
+      return 1;
+    }
     char *hash = strchr(line, '#');
     if (hash)
       *hash = '\0';
     int a, b, p;
-    char extra;
-    int got = sscanf(line, " %d %d %d %c", &a, &b, &p, &extra);
-    if (got <= 0)
-      continue; /* blank or comment-only line */
-    if (got != 3 || a < 0 || a > MAX_ARRIVAL || b < 1 || b > MAX_BURST ||
-        p < 1 || p > 99) {
+    char *save = NULL;
+    char *first = strtok_r(line, " \t\r\n", &save);
+    if (!first)
+      continue;
+    char *second = strtok_r(NULL, " \t\r\n", &save);
+    char *third = strtok_r(NULL, " \t\r\n", &save);
+    if (!second || !third || strtok_r(NULL, " \t\r\n", &save) ||
+        !parse_int(first, 0, MAX_ARRIVAL, &a) ||
+        !parse_int(second, 1, MAX_BURST, &b) ||
+        !parse_int(third, 1, 99, &p)) {
       printf("[Error] %s:%d: expected \"arrival(0-%d) burst(1-%d) "
              "priority(1-99)\"\n",
              path, lineno, MAX_ARRIVAL, MAX_BURST);
@@ -88,6 +115,11 @@ int scheduler_load_file(Job jobs[], int *n, const char *path) {
     }
     tmp[count] = (Job){count + 1, a, b, p, "READY"};
     count++;
+  }
+  if (ferror(f)) {
+    perror("read jobs file");
+    fclose(f);
+    return 1;
   }
   fclose(f);
   if (count == 0) {
@@ -223,6 +255,7 @@ void scheduler_display_jobs(const Job jobs[], int n) {
 /* ---------- simulation ---------- */
 
 static void add_slice(Timeline *t, int id, int start, int end) {
+  /* With 20 jobs, burst <=100, q>=1 and <=20 idle gaps, max 2020 slices. */
   t->s[t->count++] = (Slice){id, start, end};
 }
 
@@ -234,6 +267,7 @@ static void finish(Job *j, Metrics *m, int now) {
   char buf[LOG_MSG_LEN];
   snprintf(buf, sizeof(buf), "[Scheduler] Job %d completed (CT=%d, TAT=%d, WT=%d)",
            j->id, m->completion, m->turnaround, m->waiting);
+  if (trace_enabled) puts(buf);
   logger_log(buf);
 }
 
@@ -283,6 +317,7 @@ static void simulate_nonpreemptive(Job jobs[], int n, Policy p, Metrics m[],
      * arrival */
     if (next < 0) {
       int wake = earliest_arrival(jobs, done, n);
+      event("IDLE", 0, now);
       add_slice(t, 0, now, wake); /* IDLE slice */
       now = wake;
       next = pick(jobs, done, n, now, p);
@@ -290,6 +325,7 @@ static void simulate_nonpreemptive(Job jobs[], int n, Policy p, Metrics m[],
 
     /* Step 3: Run the job non-preemptively until completion */
     strcpy(jobs[next].status, "RUNNING");
+    event("READY -> RUNNING", jobs[next].id, now);
     add_slice(t, jobs[next].id, now, now + jobs[next].burst);
     now += jobs[next].burst;
     done[next] = true;
@@ -329,6 +365,8 @@ static void admit_arrivals(const Job jobs[], int n, int now, bool admitted[],
       break;
     admitted[best] = true;
     queue_push(q, best);
+    if (trace_enabled)
+      printf("  J%d admitted (arrival=%d, boundary=%d)\n", jobs[best].id, jobs[best].arrival, now);
   }
 }
 
@@ -337,6 +375,14 @@ static void admit_arrivals(const Job jobs[], int n, int now, bool admitted[],
  * Preemptive scheduling with a fixed time quantum.
  * Rule: New arrivals join the queue before a preempted job is re-queued.
  */
+static void print_ready(const Job jobs[], const Queue *q, int now) {
+  if (!trace_enabled) return;
+  printf("  t=%d ready queue: [", now);
+  for (int i = q->head; i != q->tail; i = (i + 1) % 128)
+    printf("%sJ%d", i == q->head ? "" : ", ", jobs[q->items[i]].id);
+  puts("]");
+}
+
 static void simulate_rr(Job jobs[], int n, Metrics m[], Timeline *t) {
   int remaining[MAX_JOBS];
   bool admitted[MAX_JOBS] = {false};
@@ -355,6 +401,7 @@ static void simulate_rr(Job jobs[], int n, Metrics m[], Timeline *t) {
       int wake = earliest_arrival(jobs, admitted, n);
       if (wake < 0)
         break;
+      event("IDLE", 0, now);
       add_slice(t, 0, now, wake); /* IDLE slice */
       now = wake;
       continue;
@@ -367,6 +414,8 @@ static void simulate_rr(Job jobs[], int n, Metrics m[], Timeline *t) {
 
     /* Step 4: Execute job for up to current_quantum time units */
     strcpy(jobs[cur].status, "RUNNING");
+    event("READY -> RUNNING", jobs[cur].id, now);
+    print_ready(jobs, &q, now);
     add_slice(t, jobs[cur].id, now, now + run);
     now += run;
     remaining[cur] -= run;
@@ -377,11 +426,14 @@ static void simulate_rr(Job jobs[], int n, Metrics m[], Timeline *t) {
     /* Step 6: If job still needs CPU, re-queue at tail; otherwise mark complete
      */
     if (remaining[cur] > 0) {
+      strcpy(jobs[cur].status, "READY");
+      event("RUNNING -> READY (quantum expired)", jobs[cur].id, now);
       queue_push(&q, cur);
     } else {
       finished++;
       finish(&jobs[cur], &m[cur], now);
     }
+    print_ready(jobs, &q, now);
   }
 }
 
@@ -407,13 +459,48 @@ static void averages(const Metrics m[], int n, double *tat, double *wt) {
 
 /* ---------- reporting ---------- */
 
+static double response_average(const Job jobs[], int n, const Timeline *t) {
+  int sum = 0;
+  for (int j = 0; j < n; j++)
+    for (int i = 0; i < t->count; i++)
+      if (t->s[i].job_id == jobs[j].id) {
+        sum += t->s[i].start - jobs[j].arrival;
+        break;
+      }
+  return (double)sum / n;
+}
+
+static void print_extra_metrics(const Job jobs[], int n, const Timeline *t) {
+  int busy = 0, slices = 0, switches = 0, prev = 0;
+  int makespan = t->s[t->count - 1].end;
+  for (int i = 0; i < t->count; i++) {
+    Slice s = t->s[i];
+    if (s.job_id) {
+      busy += s.end - s.start;
+      slices++;
+      if (prev && prev != s.job_id) switches++;
+    }
+    prev = s.job_id;
+  }
+  printf("Average response time:    %.2f\n", response_average(jobs, n, t));
+  printf("CPU utilization: %.2f%% | throughput: %.3f jobs/unit | makespan: %d\n",
+         100.0 * busy / makespan, (double)n / makespan, makespan);
+  printf("Execution slices: %d | Direct job-to-job switches: %d\n", slices, switches);
+}
+
 static void print_timeline(const Timeline *t) {
+  bool color = isatty(STDOUT_FILENO) && !getenv("NO_COLOR");
+  static const char *palette[] = {"\033[36m", "\033[33m", "\033[35m", "\033[32m", "\033[34m"};
   printf("\nExecution order:\n");
   for (int i = 0; i < t->count; i++) {
+    if (color)
+      printf("%s", t->s[i].job_id ? palette[(t->s[i].job_id - 1) % 5] : "\033[90m");
     if (t->s[i].job_id == 0)
       printf("[IDLE %d-%d] ", t->s[i].start, t->s[i].end);
     else
       printf("[J%d %d-%d] ", t->s[i].job_id, t->s[i].start, t->s[i].end);
+    if (color) printf("\033[0m");
+    if ((i + 1) % 8 == 0) putchar('\n');
   }
   printf("\n");
 }
@@ -452,10 +539,16 @@ static int run_policy(Job jobs[], int n, Policy p) {
     printf("Tie-break: equal arrival -> lower job ID.\n");
   }
 
+  if (logging_enabled && logger_init() != 0)
+    return 1;
   simulate(jobs, n, p, m, &t);
+  int logged = logging_enabled ? logger_shutdown() : 0;
   print_timeline(&t);
   print_table(jobs, m, n);
-  return 0;
+  print_extra_metrics(jobs, n, &t);
+  if (logging_enabled)
+    printf("Scheduling events written: %d (%s)\n", logged, LOG_FILE_NAME);
+  return logged < 0 ? 1 : 0;
 }
 
 int scheduler_run_fcfs(Job jobs[], int n) { return run_policy(jobs, n, FCFS); }
@@ -468,8 +561,8 @@ int scheduler_compare_all(const Job jobs[], int n) {
   Job copy[MAX_JOBS];
   Metrics m[MAX_JOBS];
   Timeline t;
-  double tat[3], wt[3];
-  int best = 0;
+  double tat[3], wt[3], response[3];
+  int best = 0, best_response = 0;
 
   if (n <= 0) {
     printf("No jobs to compare. Load or input jobs first.\n");
@@ -477,15 +570,20 @@ int scheduler_compare_all(const Job jobs[], int n) {
   }
   printf("\n=== Policy comparison (same job set, RR quantum = %d) ===\n",
          current_quantum);
-  printf("| Policy                    | Avg turnaround | Avg waiting |\n");
+  printf("| Policy                    | Avg turnaround | Avg waiting | Avg response |\n");
   for (int p = 0; p < 3; p++) {
     memcpy(copy, jobs, n * sizeof(Job));
     simulate(copy, n, (Policy)p, m, &t);
     averages(m, n, &tat[p], &wt[p]);
-    printf("| %-25s | %-14.2f | %-11.2f |\n", policy_names[p], tat[p], wt[p]);
+    response[p] = response_average(copy, n, &t);
+    printf("| %-25s | %-14.2f | %-11.2f | %-12.2f |\n",
+           policy_names[p], tat[p], wt[p], response[p]);
+    if (response[p] < response[best_response]) best_response = p;
     if (wt[p] < wt[best])
       best = p;
   }
   printf("Lowest average waiting time: %s\n", policy_names[best]);
+  printf("Lowest average response time: %s\n", policy_names[best_response]);
+  puts("Recommendations apply to this workload; ties use displayed policy order.");
   return 0;
 }

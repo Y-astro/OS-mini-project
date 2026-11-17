@@ -1,5 +1,7 @@
 # CampusCompute — Intelligent Job Scheduling and Resource Management
 
+> **Revised fork:** Start with [VIVA_QUICKSTART.md](VIVA_QUICKSTART.md) for current commands, metrics, tests and limitations. Use `--help` for current menu numbering. IPC names are PID-scoped, cleanup is process-local, and `make demo` is a smoke test; use `make test` for independent regressions. An unsafe state does not prove deadlock.
+
 [![Language](https://img.shields.io/badge/Language-C99-00599C?logo=c)](#)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%2F%20Ubuntu%20%2F%20WSL-E95420?logo=ubuntu)](https://ubuntu.com)
 [![Standards](https://img.shields.io/badge/Standard-POSIX.1--2008-black)](#)
@@ -24,7 +26,7 @@ In a high-performance university shared computing facility, students and researc
 - **FR2 — CPU Scheduling**: FCFS, Non-preemptive Priority, and Round Robin (with configurable time quantum), complete with Gantt timelines, turnaround time, waiting time, and averages.
 - **FR3 — Concurrent Activity Logger**: Multithreaded bounded producer-consumer buffer synchronized via POSIX threads, a mutual exclusion lock (`pthread_mutex_t`), and condition variables (`pthread_cond_t`).
 - **FR4 — Inter-Process Communication (IPC)**: POSIX shared memory (`shm_open`, `mmap`) and named semaphores (`sem_open`, `sem_timedwait`) for data exchange between cooperating processes.
-- **FR5 — Resource-Safety Analysis (Banker's Algorithm)**: Calculation of the Need matrix ($\text{Need} = \text{Max} - \text{Alloc}$) and detection of safe states (with safe sequences) vs. unsafe deadlock states.
+- **FR5 — Resource-Safety Analysis (Banker's Algorithm)**: Calculation of the Need matrix ($\text{Need} = \text{Max} - \text{Alloc}$) and detection of safe states (with safe sequences) vs. unsafe states (deadlock possible).
 - **FR6 — Worker Process Management & Failure Detection**: Process creation using `fork()`, status monitoring via `waitpid()`, and parent-side differentiation between clean termination and controlled simulated failures.
 - **FR7 — Resource Quotas & System Cleanup**: Kernel CPU limits using `setrlimit(RLIMIT_CPU)` with `SIGXCPU` signal detection, along with automated zero-leak cleanup of all IPC objects and child processes.
 - **FR8 — User Interface & Error Handling**: Comprehensive interactive CLI menu, standardized CLI flags, and robust validation of commands and integer inputs.
@@ -243,7 +245,7 @@ When the examiner asks live coding or practical questions, execute the correspon
 | **3. Change job priority and run Priority** | Option `4` (`--edit-priority`), pick Job 4, set priority to `1`. Then Option `9` (`--priority`). | Job 4's priority becomes 1. At $t=5$, Job 2 and Job 4 both have Priority 1. By arrival tie-break ($AT=1 < AT=3$), Job 2 runs first, then Job 4 runs next at $t=8$. |
 | **4. Compare all scheduling policies** | `./campuscompute --compare` | Runs FCFS, Priority, and Round Robin on the same job set and presents a comparative summary of average turnaround and waiting times. |
 | **5. Demonstrate Producer-Consumer** | `./campuscompute --logger` | Shows queue-full blocking (`queue full (8/8), waiting for consumer`), condition variable signaling, and orderly shutdown with 17 events written to `campuscompute.log`. |
-| **6. Demonstrate Banker's safe & unsafe** | `./campuscompute --banker-safe`<br>`./campuscompute --banker-unsafe` | Shows complete safe sequence $\langle P_1, P_3, P_4, P_0, P_2 \rangle$ for safe state, and blocked deadlock state for unsafe state. |
+| **6. Demonstrate Banker's safe & unsafe** | `./campuscompute --banker-safe`<br>`./campuscompute --banker-unsafe` | Shows complete safe sequence $\langle P_1, P_3, P_4, P_0, P_2 \rangle$ for safe state, and unsafe state for unsafe state. |
 | **7. Demonstrate Worker Failure Detection** | `./campuscompute --worker-fail` | Child process deliberately exits with status 42 (`SIMULATED FAILURE`). Parent catches it via `waitpid()` and reports `FAILED (detected from non-zero exit status)`. |
 | **8. Demonstrate Resource Limit** | `./campuscompute --rlimit` | Demonstrates `setrlimit(RLIMIT_CPU)` soft limit of 1s. After 1s of CPU spinning, Linux kernel terminates child with `SIGXCPU` (signal 24). |
 

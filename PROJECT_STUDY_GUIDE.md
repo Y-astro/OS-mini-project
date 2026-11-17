@@ -1,4 +1,6 @@
 # CampusCompute — Comprehensive Project & Concept Study Guide
+
+> **Revised fork:** Start with [VIVA_QUICKSTART.md](VIVA_QUICKSTART.md) for current commands, metrics, tests and limitations. Use `--help` for current menu numbering. IPC names are PID-scoped, cleanup is process-local, and `make demo` is a smoke test; use `make test` for independent regressions. An unsafe state does not prove deadlock.
 **Course**: Operating Systems (UE25CS242A) — Level 3 Mini-Project  
 **Faculty In-Charge**: Dr. Gokulakrishnan S  
 **Institution**: PES University  
@@ -219,7 +221,7 @@ Because distinct processes have separate virtual memory spaces, Child Process ca
   - **Safe Sequence**: $\langle P_1, P_3, P_4, P_0, P_2 \rangle$.
 - **Unsafe State Test Case**:
   4 processes, 3 resource types. $\text{Available} = [0, 1, 0]$.
-  Every process needs at least 2 units of $R_0$ and 1 unit of $R_2$. None can finish $\rightarrow$ program identifies **UNSAFE** deadlock state.
+  Every process needs at least 2 units of $R_0$ and 1 unit of $R_2$. None can finish $\rightarrow$ program identifies **UNSAFE** state (deadlock possible).
 
 ---
 
@@ -506,7 +508,7 @@ During the viva, your instructor may ask you to execute or modify code on the sp
 > **Answer**: `munmap()` unmaps the shared memory page from the process's virtual address space. `shm_unlink()` removes the shared memory filename from the `/dev/shm` filesystem so it is destroyed once all processes close it.
 
 **Q19: How do you verify that your program cleans up all created IPC resources?**
-> **Answer**: Run `./campuscompute --cleanup; ls /dev/shm | grep cc_`. The command outputs 0 remaining objects, and `ls /dev/shm` returns empty.
+> **Answer**: Run `./campuscompute --ipc --cleanup` and inspect `/dev/shm` for that PID's names. Other programs may have objects there.
 
 **Q20: Why did you write your program in modular C rather than Python or Java?**
 > **Answer**: C provides direct access to POSIX kernel system calls (`fork`, `mmap`, `shm_open`, `setrlimit`, `pthread`), allowing exact control over memory addresses, hardware signals, and process tables without runtime abstraction layers.

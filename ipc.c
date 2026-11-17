@@ -10,15 +10,15 @@
 #define WAIT_SECS 5
 
 static void get_shm_name(char *buf, size_t sz) {
-  snprintf(buf, sz, "/cc_shm_%s", get_srn());
+  snprintf(buf, sz, "/cc_shm_%ld", (long)getpid());
 }
 
 static void get_sem_ready_name(char *buf, size_t sz) {
-  snprintf(buf, sz, "/cc_sem_ready_%s", get_srn());
+  snprintf(buf, sz, "/cc_sem_ready_%ld", (long)getpid());
 }
 
 static void get_sem_done_name(char *buf, size_t sz) {
-  snprintf(buf, sz, "/cc_sem_done_%s", get_srn());
+  snprintf(buf, sz, "/cc_sem_done_%ld", (long)getpid());
 }
 
 typedef struct {
@@ -28,14 +28,30 @@ typedef struct {
   char response[128];
 } Packet;
 
-void ipc_cleanup(void) {
+/* Only unlink objects this process actually created; never touch peers' names. */
+static bool owns_shm, owns_ready, owns_done;
+int ipc_cleanup(void) {
   char name[128];
+  int rc = 0;
   get_shm_name(name, sizeof(name));
-  shm_unlink(name);
+  if (owns_shm) {
+    if (shm_unlink(name) == -1 && errno != ENOENT) {
+      perror("shm_unlink"); rc = 1;
+    } else owns_shm = false;
+  }
   get_sem_ready_name(name, sizeof(name));
-  sem_unlink(name);
+  if (owns_ready) {
+    if (sem_unlink(name) == -1 && errno != ENOENT) {
+      perror("sem_unlink ready"); rc = 1;
+    } else owns_ready = false;
+  }
   get_sem_done_name(name, sizeof(name));
-  sem_unlink(name);
+  if (owns_done) {
+    if (sem_unlink(name) == -1 && errno != ENOENT) {
+      perror("sem_unlink done"); rc = 1;
+    } else owns_done = false;
+  }
+  return rc;
 }
 
 int ipc_objects_remaining(void) {
@@ -47,21 +63,21 @@ int ipc_objects_remaining(void) {
   if (fd != -1) {
     close(fd);
     n++;
-  }
+  } else if (errno != ENOENT) return -1;
 
   get_sem_ready_name(name, sizeof(name));
   sem_t *s1 = sem_open(name, 0);
   if (s1 != SEM_FAILED) {
     sem_close(s1);
     n++;
-  }
+  } else if (errno != ENOENT) return -1;
 
   get_sem_done_name(name, sizeof(name));
   sem_t *s2 = sem_open(name, 0);
   if (s2 != SEM_FAILED) {
     sem_close(s2);
     n++;
-  }
+  } else if (errno != ENOENT) return -1;
 
   return n;
 }
@@ -70,7 +86,7 @@ int ipc_objects_remaining(void) {
 static int wait_sem(sem_t *s) {
   struct timespec ts;
   int r;
-  clock_gettime(CLOCK_REALTIME, &ts);
+  if (clock_gettime(CLOCK_REALTIME, &ts) == -1) return -1;
   ts.tv_sec += WAIT_SECS;
   do {
     r = sem_timedwait(s, &ts);
@@ -93,7 +109,7 @@ static void child_main(Packet *pkt, sem_t *ready, sem_t *done) {
            pkt->job_id, getpid());
 
   /* Step 4: Signal parent that computation and response are done */
-  sem_post(done);
+  if (sem_post(done) == -1) child_exit(1);
   child_exit(0);
 }
 
@@ -109,7 +125,7 @@ static int ipc_transfer(int job_id, int burst, const char *name) {
   get_sem_done_name(sem_done_name, sizeof(sem_done_name));
 
   printf("\n=== Shared memory + named semaphore IPC ===\n");
-  ipc_cleanup(); /* remove leftovers from an earlier crashed run */
+  if (ipc_cleanup() != 0) return 1;
 
   /* Step 1: Create POSIX shared memory object under /dev/shm */
   fd = shm_open(shm_name, O_CREAT | O_EXCL | O_RDWR, 0600);
@@ -117,6 +133,8 @@ static int ipc_transfer(int job_id, int burst, const char *name) {
     perror("shm_open");
     goto out;
   }
+
+  owns_shm = true;
 
   /* Step 2: Set the size of the shared memory region */
   if (ftruncate(fd, sizeof(Packet)) == -1) {
@@ -133,11 +151,11 @@ static int ipc_transfer(int job_id, int burst, const char *name) {
 
   /* Step 4: Create POSIX named semaphores initialized to 0 */
   ready = sem_open(sem_ready_name, O_CREAT | O_EXCL, 0600, 0);
+  if (ready == SEM_FAILED) { perror("sem_open ready"); goto out; }
+  owns_ready = true;
   done = sem_open(sem_done_name, O_CREAT | O_EXCL, 0600, 0);
-  if (ready == SEM_FAILED || done == SEM_FAILED) {
-    perror("sem_open");
-    goto out;
-  }
+  if (done == SEM_FAILED) { perror("sem_open done"); goto out; }
+  owns_done = true;
   printf("[Parent %d] created %s, %s, %s\n", getpid(), shm_name, sem_ready_name,
          sem_done_name);
 
@@ -156,40 +174,39 @@ static int ipc_transfer(int job_id, int burst, const char *name) {
   snprintf(pkt->name, sizeof(pkt->name), "%s", name);
   printf("[Parent %d] wrote job %d ('%s', burst %d) to shared memory, posting %s\n",
          getpid(), pkt->job_id, pkt->name, pkt->burst, sem_ready_name);
-  sem_post(ready);
-
-  /* Step 7: Parent waits for child response with a timeout */
-  if (wait_sem(done) == -1) {
+  bool replied = false;
+  if (sem_post(ready) == -1) {
+    perror("sem_post ready");
+    kill(pid, SIGKILL);
+  } else if (wait_sem(done) == -1) {
     perror("[Parent] waiting for child");
     kill(pid, SIGKILL);
   } else {
+    replied = true;
     printf("[Parent %d] child replied via shared memory: \"%s\"\n", getpid(),
            pkt->response);
   }
-  while (waitpid(pid, &status, 0) == -1 && errno == EINTR) {
+  pid_t reaped;
+  do { reaped = waitpid(pid, &status, 0); } while (reaped == -1 && errno == EINTR);
+  if (reaped == -1) {
+    perror("waitpid");
+  } else if (WIFEXITED(status)) {
+    printf("[Parent %d] child %d reaped, exit status %d\n", getpid(), pid,
+           WEXITSTATUS(status));
+    if (replied && WEXITSTATUS(status) == 0 && pkt->response[0]) rc = 0;
+  } else if (WIFSIGNALED(status)) {
+    printf("[Parent] child terminated by signal %d\n", WTERMSIG(status));
   }
-  printf("[Parent %d] child %d reaped, exit status %d\n", getpid(), pid,
-         WEXITSTATUS(status));
-  rc = (WIFEXITED(status) && WEXITSTATUS(status) == 0 &&
-        pkt->response[0] != '\0')
-           ? 0
-           : 1;
 
 out:
   /* Step 8: Clean up all mapped memory, file descriptors, and semaphores */
-  if (pkt != MAP_FAILED)
-    munmap(pkt, sizeof(Packet));
-  if (fd != -1)
-    close(fd);
-  if (ready != SEM_FAILED)
-    sem_close(ready);
-  if (done != SEM_FAILED)
-    sem_close(done);
-  ipc_cleanup();
+  if (pkt != MAP_FAILED && munmap(pkt, sizeof(Packet)) == -1) { perror("munmap"); rc = 1; }
+  if (fd != -1 && close(fd) == -1) { perror("close"); rc = 1; }
+  if (ready != SEM_FAILED && sem_close(ready) == -1) { perror("sem_close ready"); rc = 1; }
+  if (done != SEM_FAILED && sem_close(done) == -1) { perror("sem_close done"); rc = 1; }
+  if (ipc_cleanup() != 0) rc = 1;
   int left = ipc_objects_remaining();
-  printf("[Cleanup] shared memory and semaphores unlinked; objects remaining: "
-         "%d\n",
-         left);
+  printf("[Cleanup] this process's IPC objects remaining: %d (-1 = check failed)\n", left);
   return (rc == 0 && left == 0) ? 0 : 1;
 }
 

@@ -43,6 +43,7 @@ typedef struct {
 
 /* Prompts until the user enters an integer in [lo, hi]. Returns false on EOF.
  */
+bool parse_int(const char *text, int lo, int hi, int *out);
 bool read_int(const char *prompt, int lo, int hi, int *out);
 
 /* A child inherits unflushed stdio buffers, so flush before fork and before

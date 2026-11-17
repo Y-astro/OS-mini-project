@@ -19,6 +19,7 @@ static pthread_t consumer;
 static FILE *log_file;
 static bool active;
 static int written;
+static bool write_failed;
 
 /* Producer pushes an event into the bounded buffer */
 static void push(const LogEvent *ev) {
@@ -74,9 +75,13 @@ static void *consume(void *arg) {
     if (ev.stop)
       break;
     printf("  [Consumer] [%s] %s\n", ev.time, ev.text);
-    fprintf(log_file, "[%s] %s\n", ev.time, ev.text);
-    fflush(log_file);
-    written++;
+    if (fprintf(log_file, "[%s] %s\n", ev.time, ev.text) < 0 ||
+        fflush(log_file) == EOF) {
+      if (!write_failed) perror("log write");
+      write_failed = true;
+    } else {
+      written++;
+    }
     usleep(20000); /* slow consumer, so the bounded queue can fill up */
   }
   return NULL;
@@ -91,6 +96,7 @@ int logger_init(void) {
     return -1;
   }
   head = tail = count = written = 0;
+  write_failed = false;
   int err = pthread_create(&consumer, NULL, consume, NULL);
   if (err != 0) {
     fprintf(stderr, "pthread_create: %s\n", strerror(err));
@@ -116,14 +122,21 @@ void logger_log(const char *message) {
 
 int logger_shutdown(void) {
   if (!active)
-    return written;
+    return 0;
   LogEvent stop = {.stop = true};
   push(&stop);
-  pthread_join(consumer, NULL);
-  fclose(log_file);
+  int err = pthread_join(consumer, NULL);
+  if (err) {
+    fprintf(stderr, "pthread_join: %s\n", strerror(err));
+    return -1;
+  }
+  if (fclose(log_file) == EOF) {
+    perror("fclose log");
+    write_failed = true;
+  }
   log_file = NULL;
   active = false;
-  return written;
+  return write_failed ? -1 : written;
 }
 
 typedef struct {
@@ -201,9 +214,9 @@ int logger_submit_event(void) {
     return 1;
   printf("Pushing event to bounded queue: \"%s\"\n", buf);
   logger_log(buf);
-  usleep(40000); /* allow consumer thread to dequeue and print */
   if (!was_active) {
-    logger_shutdown();
+    if (logger_shutdown() < 0)
+      return 1;
     printf("Log event committed to %s.\n", LOG_FILE_NAME);
   }
   return 0;
