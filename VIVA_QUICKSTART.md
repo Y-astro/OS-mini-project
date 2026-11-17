@@ -52,15 +52,53 @@ Interactive mode: add jobs, edit priority, set quantum, run policies, display st
 
 Safe sequence for built-in Banker state: P1, P3, P4, P0, P2. These are expected values, not a claim that the executable has been tested on your machine.
 
-## Live coding practice
+## Official 5 Live Demonstration Tasks (from OS_Viva.pdf)
 
-- Add J6 (arrival 5, burst 4, priority 1); predict FCFS finish at 30.
-- Modify RR quantum and explain how arrivals enter before requeue.
-- Set J4 priority to 1; J2 still wins the tie due to earlier arrival.
-- Change available resources in a custom Banker state and manually find a sequence.
-- Explain why the consumer cannot access an empty queue and why a mutex alone is insufficient.
-- Explain why exit(42) can be a PASS in the controlled failure demo.
-- Run make test; investigate rather than ignore failing assertions.
+1. **Add three jobs and execute FCFS**:
+   - Menu Option `5` (`--add-job`): J6 ($AT=5, BT=4, Pri=1$), J7 ($AT=6, BT=2, Pri=3$), J8 ($AT=7, BT=5, Pri=2$).
+   - Menu Option `9` (`--fcfs`): Runs FCFS; J1–J5 complete at $t=26$; J6 runs $26 \rightarrow 30$, J7 runs $30 \rightarrow 32$, J8 runs $32 \rightarrow 37$.
+2. **Change RR time quantum**:
+   - `./campuscompute --rr 2` vs `./campuscompute --rr 4`.
+   - $q=2$ gives 14 slices (responsive, high context switches); $q=4$ drops to 8 slices (turnaround drops from 17.80 to 17.20).
+3. **Demonstrate Producer-Consumer synchronization**:
+   - `./campuscompute --logger` (or `--logger-custom`).
+   - Point out `[Producer] queue full (8/8), waiting for consumer`; explain `pthread_cond_wait(&not_full, &lock)`.
+4. **Run Banker's Algorithm with safe & unsafe state**:
+   - Safe: `./campuscompute --banker-safe` $\implies$ Safe sequence $\langle P_1, P_3, P_4, P_0, P_2 \rangle$.
+   - Unsafe: `./campuscompute --banker-file samples/banker_unsafe.txt` $\implies$ Available $[0, 1, 0]$ cannot satisfy any process; flagged UNSAFE.
+5. **Simulate worker failure & parent detection**:
+   - `./campuscompute --worker-fail` (or `--worker-custom`).
+   - Child calls `exit(42)`; parent calls `waitpid()` and checks `WIFEXITED(status)` and `WEXITSTATUS(status) == 42`.
+
+## 25 Viva Questions Quick Reference (Syllabus Mapping)
+
+| # | Topic | Key Answer / Formula / System Call |
+|---|---|---|
+| **Q1** | Problem solved | University shared compute facility; scheduling, IPC, concurrency, deadlock avoidance, process safety |
+| **Q2** | Architecture | 8 C modules coordinated by `main.c`: `scheduler`, `logger`, `ipc`, `banker`, `worker`, `rlimit`, `input`, `common.h` |
+| **Q3** | Job representation | `struct Job` in `common.h`: `id`, `arrival`, `burst`, `remaining`, `priority`, `state` (`READY/RUNNING/COMPLETED`), metrics |
+| **Q4** | Input validation | `input.c` using `fgets()` + `strtol()`, range `[min, max]`, boundary checks, flushing stdin, looping on error |
+| **Q5** | Job lifecycle | `JOB_READY` (queue) $\rightarrow$ `JOB_RUNNING` (CPU dispatch, $RT$) $\rightarrow$ preempt/requeue $\rightarrow$ `JOB_COMPLETED` ($CT, TAT, WT$) |
+| **Q6** | FCFS algorithm | Non-preemptive FIFO by arrival time; J1–J5: order `J1->J2->J3->J4->J5`, Avg WT=8.20, Avg TAT=13.40 |
+| **Q7** | FCFS vs RR vs Priority | FCFS: non-preemptive arrival; RR: preemptive time quantum; Priority: non-preemptive priority rank ($1 > 2$) |
+| **Q8** | RR preemption | CPU forcibly interrupted at quantum $q$; running job requeued behind newly arrived jobs |
+| **Q9** | CT, TAT, WT calculation | $TAT = CT - AT$; $WT = TAT - BT$. Job 2 ($AT=1, BT=3$): runs $5 \rightarrow 8$, $CT=8, TAT=7, WT=4$ |
+| **Q10** | Priority tie-breaking | 1) Earlier arrival time wins. 2) Lower Job ID wins (`scheduler.c` in `pick_priority_job()`) |
+| **Q11** | Lowest Avg WT algorithm | **Priority** (Avg WT=7.00) because high-priority short jobs (J2, J4, J5) run before long J3 ($BT=8$) |
+| **Q12** | POSIX threads for logger | Decouples CPU execution from slow disk I/O; concurrent in-memory logging with background consumer file flush |
+| **Q13** | Producer-Consumer | 3 worker threads produce 5 logs each into bounded buffer (size 8); 1 consumer thread writes to `campuscompute.log` |
+| **Q14** | Mutex purpose | `pthread_mutex_t` prevents race conditions on `tail`, `head`, and corrupted non-atomic updates to `count` |
+| **Q15** | Condition variables | `not_full` and `not_empty` prevent busy-waiting; always in `while` loop to safeguard against spurious wakeups |
+| **Q16** | IPC & Shared memory | High-speed zero-copy IPC; memory mapped directly into virtual address space, bypassing kernel buffer copies |
+| **Q17** | Shm exchange flow | `shm_open` $\rightarrow$ `ftruncate` $\rightarrow$ `mmap` $\rightarrow$ write packet $\rightarrow$ `sem_post(ready)` $\rightarrow$ child reads $\rightarrow$ `sem_post(done)` $\rightarrow$ `munmap`/`unlink` |
+| **Q18** | Semaphore vs Mutex | Mutex has ownership, binary, intra-process; Semaphore has no ownership, can be counting, operates across processes |
+| **Q19** | Banker's matrices | Available (1D), Allocation (2D), Max (2D), $\text{Need}[i][j] = \text{Max}[i][j] - \text{Allocation}[i][j]$ |
+| **Q20** | Safe vs Unsafe state | Safe: $\exists$ Safe Sequence guaranteeing no deadlock. Unsafe: no sequence; deadlock possible if max claimed |
+| **Q21** | `fork()` & `waitpid()` | `fork()` returns child PID to parent, 0 to child; `waitpid()` reaps child, `WIFEXITED`, `WEXITSTATUS`, `WIFSIGNALED` |
+| **Q22** | Simulated vs OS failure | Simulated: `WIFEXITED` is true, `WEXITSTATUS == 42`. OS crash: `WIFSIGNALED` is true, killed by signal (e.g. `SIGSEGV`) |
+| **Q23** | `setrlimit()` effect | `RLIMIT_CPU` soft=1s; kernel sends `SIGXCPU` (signal 24) terminating runaway CPU spin loop |
+| **Q24** | IPC error cleanup | Rollback mechanism in `ipc.c`: `sem_unlink()`, `munmap()`, `shm_unlink()`; `--cleanup` cleans PID-scoped objects |
+| **Q25** | Adding SJF without impact | Add `schedule_sjf()` in `scheduler.h/c` (pick smallest $BT$ among arrived), wire flag in `main.c`; other policies untouched |
 
 ## Limits of this implementation
 

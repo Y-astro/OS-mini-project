@@ -14,8 +14,8 @@
 6. [Banker's Algorithm & Resource Safety (FR5)](#6-bankers-algorithm--resource-safety-fr5)
 7. [Worker Failure Detection & Process Lifecycle (FR6)](#7-worker-failure-detection--process-lifecycle-fr6)
 8. [Resource Limits & System Cleanup (FR7, FR8)](#8-resource-limits--system-cleanup-fr7-fr8)
-9. [Live Coding & Practical Demonstration Cheat Sheet](#9-live-coding--practical-demonstration-cheat-sheet)
-10. [Top 25 Viva Voce Questions & Model Answers](#10-top-25-viva-voce-questions--model-answers)
+9. [Official Live Demonstration Tasks (5 Faculty Directives)](#9-official-live-demonstration-tasks-5-faculty-directives)
+10. [Official Teacher Viva Voce Questions & Model Answers (Q1 to Q25)](#10-official-teacher-viva-voce-questions--model-answers-q1-to-q25)
 
 ---
 
@@ -278,166 +278,348 @@ To handle **spurious wakeups** and race conditions. A thread may wake up from `p
 
 ---
 
-## 9. Live Coding & Practical Demonstration Cheat Sheet
+## 9. Official Live Demonstration Tasks (5 Faculty Directives)
 
-Here are the exact commands to run during your viva when the examiner gives specific tasks:
+According to `OS_Viva.pdf` (Dr. Gokulakrishnan S), students will be asked to perform these five specific tasks without referring to source code documentation:
 
-### Task 1: "Add a new job and execute the FCFS algorithm."
-**In Interactive Mode**:
+### Task 1: "Add three jobs and execute FCFS scheduling."
+**Action in Interactive Mode**:
 ```bash
 ./campuscompute
-# Type 3 (Add a new job to current workload)
-# Enter: Arrival=5, Burst=4, Priority=1
-# Type 7 (FCFS scheduling)
+# Option 5 (--add-job): Enter Arrival=5, Burst=4, Priority=1 (Job 6)
+# Option 5 (--add-job): Enter Arrival=6, Burst=2, Priority=3 (Job 7)
+# Option 5 (--add-job): Enter Arrival=7, Burst=5, Priority=2 (Job 8)
+# Option 9 (--fcfs): Run FCFS
 ```
-**Observation**: Shows Job 6 added to the table and execution order updated to `[J1 0-5] [J2 5-8] [J3 8-16] [J4 16-22] [J5 22-26] [J6 26-30]`.
+**Observation & What to Explain**:
+- The default 5 jobs finish at $t=26$.
+- Job 6 arrives at $t=5$, waits in queue, and executes from $t=26$ to $30$ ($CT=30, TAT=25, WT=21$).
+- Job 7 executes from $t=30$ to $32$ ($CT=32, TAT=26, WT=24$).
+- Job 8 executes from $t=32$ to $37$ ($CT=37, TAT=30, WT=25$).
+- Confirms non-preemptive FIFO ordering without losing earlier jobs.
 
 ### Task 2: "Change the Round Robin time quantum and demonstrate the difference in output."
-**Direct CLI Command**:
+**Direct CLI Commands**:
 ```bash
 # Run with default quantum 2
-./campuscompute --rr
+./campuscompute --rr 2
 
-# Run with quantum 4
+# Run with larger quantum 4
 ./campuscompute --rr 4
 ```
-**Explanation to Teacher**:
-- With $q=2$, the timeline produces 14 time slices due to frequent preemptions.
-- With $q=4$, the timeline drops to 8 time slices because shorter jobs (like J2 with $BT=3$ and J5 with $BT=4$) complete in a single quantum without preemption.
-- Average turnaround time decreases from 17.80 to 17.20.
+**Explanation to Faculty**:
+- **With $q=2$**: High preemption frequency causes 14 timeline slices. Short jobs get early CPU slices (responsive), but frequent preemption increases average turnaround time ($17.80$).
+- **With $q=4$**: Slices drop from 14 to 8 because shorter jobs (like J2 with $BT=3$ and J5 with $BT=4$) complete in a single quantum without preemption. Average turnaround drops to $17.20$.
 
-### Task 3: "Change job priorities and execute Priority Scheduling."
-**In Interactive Mode**:
-```bash
-./campuscompute
-# Type 4 (Change an existing job's priority)
-# Enter Job ID: 4
-# Enter New Priority: 1
-# Type 9 (Priority scheduling)
-```
-**Observation**: Job 4's priority becomes 1. At $t=5$ (after J1 finishes), J2 and J4 both have Priority 1. J2 arrived at $t=1$, J4 at $t=3$, so J2 runs first, then J4 runs next at $t=8$ ahead of all Priority 2 jobs!
-
-### Task 4: "Run the same job set using all three scheduling algorithms and compare results."
-**Direct CLI Command**:
-```bash
-./campuscompute --compare
-```
-**Observation**: Displays a side-by-side comparison table showing average turnaround and waiting times for FCFS, Priority, and Round Robin, highlighting which policy achieved the lowest average waiting time.
-
-### Task 5: "Demonstrate producer-consumer synchronization."
+### Task 3: "Demonstrate producer-consumer synchronization."
 **Direct CLI Command**:
 ```bash
 ./campuscompute --logger
+# Or with custom thread count:
+./campuscompute --logger-custom
 ```
-**Observation**: Points out lines showing `[Producer] queue full (8/8), waiting for consumer` to demonstrate blocking synchronization, followed by orderly thread join and log verification.
+**Observation & What to Explain**:
+- Point out log lines showing `[Producer] queue full (8/8), waiting for consumer` to demonstrate blocking synchronization.
+- Explain that producers call `pthread_cond_wait(&not_full, &lock)` when buffer is full, and consumer signals `pthread_cond_signal(&not_full)` after popping an element.
+- Shows orderly shutdown via sentinel stop message and clean `pthread_join()`.
 
-### Task 6: "Show a safe and unsafe state using Banker's Algorithm."
+### Task 4: "Run Banker's Algorithm with one safe and one unsafe state."
+**Direct CLI Commands**:
 ```bash
+# Safe state check
 ./campuscompute --banker-safe
-./campuscompute --banker-unsafe
-```
-**Observation**: Shows the safe sequence $\langle P_1, P_3, P_4, P_0, P_2 \rangle$ for the safe state, and blocked processes with deadlock warning for the unsafe state.
 
-### Task 7: "Simulate worker failure and demonstrate parent-side detection."
+# Unsafe state check (from sample file)
+./campuscompute --banker-file samples/banker_unsafe.txt
+# (or ./campuscompute --banker-unsafe)
+```
+**Observation & What to Explain**:
+- **Safe State**: Evaluates $\text{Need} \le \text{Work}$. System finds a valid safe sequence $\langle P_1, P_3, P_4, P_0, P_2 \rangle$ and proves all processes can complete.
+- **Unsafe State**: Available $[0, 1, 0]$ cannot satisfy any process's minimum requirement ($R_0 \ge 2, R_2 \ge 1$). System flags `UNSAFE state (deadlock possible)`.
+
+### Task 5: "Simulate worker failure and show how the parent detects it."
+**Direct CLI Commands**:
 ```bash
 ./campuscompute --worker-fail
+# Or custom exit code:
+./campuscompute --worker-custom
 ```
-**Observation**: Worker deliberately exits with code 42. Parent detects this using `waitpid()` and reports `FAILED (detected from non-zero exit status)`.
+**Observation & What to Explain**:
+- Child process is spawned using `fork()`.
+- Worker deliberately terminates with exit code 42 (`exit(42)`).
+- Parent waits using `waitpid(pid, &status, 0)` and inspects status macros:
+  - `WIFEXITED(status)` is true.
+  - `WEXITSTATUS(status)` returns 42.
+- Parent detects non-zero exit code and prints `FAILED (detected from non-zero exit status)`.
 
 ---
 
-## 10. Top 25 Viva Voce Questions & Model Answers
+## 10. Official Teacher Viva Voce Questions & Model Answers (Q1 to Q25)
 
-### General & Architecture
-**Q1: What is the primary objective of the CampusCompute project?**
-> **Answer**: CampusCompute simulates a university computing environment to practically demonstrate fundamental Operating System concepts: CPU scheduling algorithms, multithreading synchronization with bounded buffers, inter-process communication using POSIX shared memory and semaphores, deadlock avoidance via Banker's algorithm, process lifecycle monitoring via `fork()` and `waitpid()`, and kernel resource quota enforcement using `setrlimit()`.
+The following 25 questions and 6 sections are taken verbatim from the official examination syllabus `OS_Viva.pdf` set by **Dr. Gokulakrishnan S**:
 
-**Q2: What is the difference between a process and a thread?**
-> **Answer**: A process is an independent execution unit with its own private virtual address space, file descriptors, and OS resources (created via `fork()`). A thread is a lightweight unit of execution within a process that shares the same address space, global variables, and open files with peer threads (created via `pthread_create()`), but maintains its own program counter, registers, and stack.
+### Section 1: Project Understanding and Job Management
 
-### CPU Scheduling
-**Q3: What is the difference between preemptive and non-preemptive scheduling?**
-> **Answer**: In non-preemptive scheduling (like our FCFS and Priority algorithms), once a process receives the CPU, it holds it until it either terminates or blocks for I/O. In preemptive scheduling (like our Round Robin algorithm), the OS can interrupt a running process and return it to the ready queue when its time quantum expires or a higher priority process arrives.
+#### Q1: What is the main problem that your CampusCompute project is trying to solve?
+> **Model Answer**:
+> In a shared university computing laboratory, diverse student and faculty workloads (batch simulations, compiles, machine learning tasks) compete for finite CPU cores, memory buffers, and peripherals. Without an intelligent supervisor, uncoordinated execution leads to CPU starvation, unpredictable response times, deadlocks over hardware resources, resource leakage when processes crash, and lack of audit logging.
+> **CampusCompute** solves this by providing a unified, modular operating system resource manager that demonstrates:
+> 1. Multi-policy CPU scheduling (FCFS, Priority, Round Robin).
+> 2. Thread-safe concurrent activity logging using bounded buffers.
+> 3. Zero-copy inter-process communication using POSIX shared memory and semaphores.
+> 4. Proactive deadlock avoidance using Banker's Algorithm.
+> 5. Child process monitoring and failure detection via `fork()` and `waitpid()`.
+> 6. Kernel resource quota enforcement via `setrlimit(RLIMIT_CPU)`.
 
-**Q4: Define Turnaround Time and Waiting Time. How are they calculated?**
-> **Answer**:
-> - **Turnaround Time ($TAT$)**: Total elapsed time from process arrival to its completion: $TAT = \text{Completion Time} - \text{Arrival Time}$.
-> - **Waiting Time ($WT$)**: Total time a process spent waiting in the ready queue: $WT = TAT - \text{Burst Time}$.
+#### Q2: Explain the overall architecture of your project. What are its major modules?
+> **Model Answer**:
+> CampusCompute is structured into 8 modular C source/header components coordinated by `main.c`:
+> 1. **`main.c`**: CLI entry point, 30-command menu dispatcher, CLI flag parsing (`--fcfs`, `--demo`), and integrated test harness.
+> 2. **`common.h`**: Shared data structures (`Job`, `Metrics`), state enums, constants, and dynamic SRN resolution (`getenv("SRN")`).
+> 3. **`input.c`**: Robust input handling (`read_int()`) with `fgets()`, `strtol()`, range boundary validation, and stdin buffer clearing.
+> 4. **`scheduler.c` / `scheduler.h`**: Scheduling engines for FCFS, Non-preemptive Priority, and Round Robin; Gantt chart rendering and metrics calculations (CT, TAT, WT, RT, throughput).
+> 5. **`logger.c` / `logger.h`**: Bounded circular buffer activity logger using POSIX threads, mutexes, and condition variables.
+> 6. **`ipc.c` / `ipc.h`**: Inter-process communication using POSIX shared memory (`shm_open`, `mmap`) and named semaphores (`sem_open`).
+> 7. **`banker.c` / `banker.h`**: Deadlock avoidance via Banker's algorithm; Need matrix generation and safe sequence verification.
+> 8. **`worker.c` / `worker.h`**: Process management using `fork()` and `waitpid()` for normal and failure simulation.
+> 9. **`rlimit.c` / `rlimit.h`**: Resource limits using `setrlimit(RLIMIT_CPU)` and kernel `SIGXCPU` signal handling.
 
-**Q5: What happens if the Round Robin time quantum is extremely large or extremely small?**
-> **Answer**: If the quantum is extremely large ($q \ge \max(BT)$), Round Robin degenerates into FCFS scheduling. If the quantum is extremely small (approaching 0), the system spends excessive CPU cycles on context switching overhead rather than productive work, leading to processor thrashing.
+#### Q3: How do you represent a job in your program? Explain job ID, arrival time, CPU burst, priority and status.
+> **Model Answer**:
+> In `common.h`, each job is represented by `struct Job`:
+> ```c
+> typedef enum { JOB_READY, JOB_RUNNING, JOB_COMPLETED } JobState;
+> typedef struct {
+>     int id;          // Unique job identifier (1, 2, 3...)
+>     int arrival;     // Time instant t when job enters system (>= 0)
+>     int burst;       // Total CPU time units required for execution (> 0)
+>     int remaining;   // Remaining CPU burst time (used in Round Robin)
+>     int priority;    // Priority rank (lower integer = higher priority, e.g. 1 > 2)
+>     JobState state;  // Lifecycle status (JOB_READY, JOB_RUNNING, JOB_COMPLETED)
+>     int completion;  // Timestamp when job completes
+>     int turnaround;  // TAT = Completion - Arrival
+>     int waiting;     // WT = Turnaround - Burst
+>     int response;    // RT = First Run Time - Arrival
+> } Job;
+> ```
+> - **Job ID**: Unique numeric tag.
+> - **Arrival Time ($AT$)**: Logical clock tick when the job becomes available for dispatch.
+> - **CPU Burst ($BT$)**: Amount of active CPU execution time needed to finish.
+> - **Priority**: Scheduling preference (1 is highest priority, 99 is lowest).
+> - **Status**: Active state tracking lifecycle: `JOB_READY` (waiting in queue), `JOB_RUNNING` (dispatched on CPU), `JOB_COMPLETED` (finished).
 
-**Q6: What is the priority tie-breaking rule in your implementation?**
-> **Answer**: In our Priority scheduling, lower number indicates higher priority. If two jobs have identical priority, the one with earlier arrival time runs first. If arrival times are also identical, the one with lower Job ID runs first.
+#### Q4: How does your program validate user input? What happens if the user enters invalid job details?
+> **Model Answer**:
+> In `input.c`, the `read_int(prompt, min, max)` function enforces strict validation:
+> 1. Reads raw user input into a safe buffer using `fgets()` to prevent buffer overflows.
+> 2. Parses the number using `strtol()` and checks `endptr` to reject trailing non-numeric characters (e.g. entering `4abc`).
+> 3. Verifies that the integer falls strictly within `[min, max]`.
+> 4. Safely flushes stdin if the user entered more characters than the buffer size.
+> If the user enters invalid input (e.g. negative burst, non-numeric letters, or out-of-range priority), the program prints an error message (`[Error] Value must be between min and max`) and re-prompts the user in a loop until valid data is provided. On CLI arguments, malformed flags exit with code 1 and display usage help.
 
-**Q7: In Round Robin, when a job's quantum expires at time $t$ and a new job arrives at time $t$, which one is queued first?**
-> **Answer**: The newly arrived job is admitted into the ready queue *before* the preempted job is re-queued at the tail. This prevents newly arriving short jobs from being starved by a running long job.
+#### Q5: How do you track the lifecycle of a job from arrival to completion?
+> **Model Answer**:
+> In `scheduler.c`, the lifecycle is tracked through state transitions:
+> 1. **Admission**: Created with `state = JOB_READY`, `remaining = burst`. When the logical simulation clock $t$ reaches `job.arrival`, it enters the ready queue.
+> 2. **Dispatch**: When the scheduler picks the job, its state transitions to `JOB_RUNNING`. If this is the first time the job is scheduled, its Response Time is recorded: `job.response = current_time - job.arrival`.
+> 3. **Preemption (Round Robin)**: When the time quantum expires and `remaining > 0`, the state transitions back to `JOB_READY` and the job is appended to the tail of the ready queue.
+> 4. **Completion**: When `remaining == 0`, state transitions to `JOB_COMPLETED`. The completion time is stamped (`job.completion = current_time`), and $TAT = CT - AT$ and $WT = TAT - BT$ are computed.
 
-### Multithreading & Synchronization
-**Q8: What is a Race Condition? How did you prevent it?**
-> **Answer**: A race condition occurs when multiple threads concurrently read and write shared data, and the final result depends on the non-deterministic order of execution. In `logger.c`, we prevent race conditions by enclosing all accesses to the shared circular queue, `count`, `head`, and `tail` inside a critical section protected by `pthread_mutex_lock(&lock)` and `pthread_mutex_unlock(&lock)`.
+---
 
-**Q9: What is the difference between a Mutex and a Semaphore?**
-> **Answer**:
-> 1. **Ownership**: A mutex has ownership—only the specific thread that locked the mutex can unlock it. A semaphore has no ownership—any thread/process can signal (`sem_post`) or wait (`sem_wait`).
-> 2. **Type**: A mutex is strictly binary (locked/unlocked). A semaphore can be counting (integer value $\ge 0$) or binary.
-> 3. **Scope**: POSIX mutexes operate within threads of a single process. Named POSIX semaphores can synchronize separate processes across the entire OS.
+### Section 2: CPU Scheduling Algorithms
 
-**Q10: Why do you call `pthread_cond_wait` inside a `while` loop rather than an `if` statement?**
-> **Answer**: To protect against **spurious wakeups** (where the OS wakes up a waiting thread without an explicit signal) and race conditions (where another thread sneaks in and consumes the buffer slot before the awakened thread re-acquires the mutex).
+#### Q6: Explain the FCFS scheduling algorithm. Demonstrate it using your project output.
+> **Model Answer**:
+> First Come First Serve (FCFS) is a non-preemptive algorithm that assigns the CPU to jobs in strict ascending order of their arrival time ($AT$). Once a job starts executing, it holds the CPU until its entire burst time finishes. If the CPU is idle when no jobs have arrived, the clock advances to the next arrival time.
+> **Demonstration (`./campuscompute --fcfs`)**:
+> Using the benchmark workload (J1: $AT=0, BT=5$; J2: $AT=1, BT=3$; J3: $AT=2, BT=8$; J4: $AT=3, BT=6$; J5: $AT=4, BT=4$):
+> - Timeline: `[J1 0-5] [J2 5-8] [J3 8-16] [J4 16-22] [J5 22-26]`
+> - Completion Times: J1=5, J2=8, J3=16, J4=22, J5=26.
+> - Averages: Avg $TAT = 13.40$, Avg $WT = 8.20$.
 
-**Q11: What does `pthread_cond_wait(&cv, &mutex)` do internally?**
-> **Answer**: It atomically releases the mutex and suspends the calling thread on the condition variable. When awakened by `pthread_cond_signal`, it automatically re-acquires the mutex before returning to the caller.
+#### Q7: What is the difference between FCFS, Round Robin and Priority Scheduling?
+> **Model Answer**:
+> | Feature | FCFS | Round Robin | Priority Scheduling |
+> |---|---|---|---|
+> | **Type** | Non-preemptive | Preemptive (time-sliced) | Non-preemptive (in our project) |
+> | **Selection Basis** | Arrival Time ($AT$) | FIFO Queue with Quantum ($q$) | Priority Rank (lower integer = higher priority) |
+> | **Short Job Treatment** | Suffers from Convoy Effect behind long jobs | High responsiveness; short jobs finish quickly | High-priority jobs run first regardless of length |
+> | **Starvation** | Impossible | Impossible | Possible for low-priority jobs if high-priority jobs continually arrive |
+> | **Context Switches** | Minimum ($n$ dispatches) | High (depends on quantum $q$) | Moderate ($n$ dispatches) |
 
-### Inter-Process Communication (IPC)
-**Q12: Why did you choose Shared Memory over Pipes or Message Queues?**
-> **Answer**: Shared memory is the fastest form of IPC in Linux because data is mapped directly into the address spaces of both processes. There is zero kernel copying involved during data transfer, unlike pipes or sockets where data must be copied from user space to kernel space and back to user space.
+#### Q8: Why is Round Robin considered a preemptive scheduling algorithm? Demonstrate how your time quantum works.
+> **Model Answer**:
+> Round Robin is preemptive because the OS scheduler forcibly interrupts a running job when its allocated time slice (quantum $q$) expires, moving the job from `JOB_RUNNING` back to `JOB_READY` at the end of the ready queue, even though it still has remaining burst time.
+> **Demonstration**:
+> - Run with $q=2$ (`./campuscompute --rr 2`): J1 ($BT=5$) runs from $0-2$ (preempted, 3 left); J2 ($BT=3$) runs from $2-4$ (preempted, 1 left). Timeline has 14 slices.
+> - Run with $q=4$ (`./campuscompute --rr 4`): J1 runs from $0-4$ (1 left); J2 ($BT=3$) finishes in one slice from $4-7$. Slices drop to 8, reducing preemption overhead.
 
-**Q13: Why is a synchronization mechanism like a semaphore needed with shared memory?**
-> **Answer**: Shared memory provides no built-in synchronization. Without semaphores, parent and child processes would suffer from race conditions or overwrite data before the receiver has read it. We used `sem_ready` and `sem_done` to coordinate the exact write-then-read sequence.
+#### Q9: How do you calculate completion time, turnaround time and waiting time? Explain with one job from your output.
+> **Model Answer**:
+> - **Completion Time ($CT$)**: Timestamp when the job finishes execution.
+> - **Turnaround Time ($TAT$)**: Total elapsed time from arrival to completion:
+>   $$TAT = CT - AT$$
+> - **Waiting Time ($WT$)**: Total time the job spent waiting in the ready queue:
+>   $$WT = TAT - BT$$
+> **Example from FCFS output for Job 2** ($AT=1, BT=3$):
+> 1. Job 1 runs from $t=0$ to $t=5$.
+> 2. Job 2 gets the CPU at $t=5$ and runs for 3 units, finishing at $t=8 \implies CT = 8$.
+> 3. $TAT = CT - AT = 8 - 1 = 7$.
+> 4. $WT = TAT - BT = 7 - 3 = 4$ (waited in queue from $t=1$ to $t=5$).
 
-**Q14: What is the role of `ftruncate` after `shm_open`?**
-> **Answer**: When a shared memory object is newly created using `shm_open`, its initial size is 0 bytes. Calling `ftruncate(fd, sizeof(Packet))` allocates the physical page storage required before calling `mmap`.
+#### Q10: In Priority Scheduling, what happens when two jobs have the same priority? What tie-breaking rule have you implemented?
+> **Model Answer**:
+> When two or more ready jobs share the same priority rank, CampusCompute applies a deterministic two-level tie-breaking hierarchy:
+> 1. **Primary Tie-Break**: Earlier arrival time ($AT$) wins.
+> 2. **Secondary Tie-Break**: If arrival times are also identical, the lower Job ID wins.
+> **Code implementation** (`scheduler.c` in `pick_priority_job()`):
+> ```c
+> if (jobs[i].priority < best_pri ||
+>    (jobs[i].priority == best_pri && jobs[i].arrival < best_arr) ||
+>    (jobs[i].priority == best_pri && jobs[i].arrival == best_arr && jobs[i].id < best_id))
+> ```
 
-**Q15: What is the difference between `shm_unlink` and `munmap`?**
-> **Answer**: `munmap` unmaps the shared memory region from the virtual address space of the calling process. `shm_unlink` removes the name from the OS namespace (`/dev/shm`), ensuring that the shared memory object is destroyed once all processes have closed their file descriptors.
+#### Q11: Run the same set of jobs using all three scheduling algorithms. Which algorithm gives the lowest average waiting time in your test case, and why?
+> **Model Answer**:
+> Run `./campuscompute --compare`:
+> - **FCFS**: Avg $WT = 8.20$, Avg $TAT = 13.40$
+> - **Priority**: Avg $WT = 7.00$, Avg $TAT = 12.20$
+> - **Round Robin ($q=2$)**: Avg $WT = 12.60$, Avg $TAT = 17.80$
+> **Result**: **Priority Scheduling** produces the lowest average waiting time ($7.00$).
+> **Why**: In this workload, Job 2 has highest priority ($Pri=1$) and short burst ($BT=3$), running early at $t=5$. Moderate priority jobs (J4 and J5) run ahead of the long, low-priority Job 3 ($Pri=4, BT=8$). Running shorter, high-priority jobs earlier frees up jobs sooner, minimizing cumulative queue waiting time across the workload (similar to the Shortest Job First principle).
 
-### Banker's Algorithm
-**Q16: What is the purpose of Banker's Algorithm? Is it prevention or avoidance?**
-> **Answer**: Banker's Algorithm is a **deadlock avoidance** algorithm. It tests for safety by simulating the maximum possible resource claims of all processes before granting requests, ensuring the system never enters an unsafe state.
+---
 
-**Q17: What is the difference between a Safe State and an Unsafe State?**
-> **Answer**: A safe state is one where there exists at least one order (a Safe Sequence) in which all processes can obtain their maximum required resources and finish execution without deadlock. An unsafe state is not necessarily deadlocked yet, but may lead to deadlock if all processes simultaneously demand their maximum resource requirements.
+### Section 3: Multithreading and Synchronization
 
-**Q18: How is the Need matrix calculated?**
-> **Answer**: $\text{Need}[i][j] = \text{Maximum}[i][j] - \text{Allocation}[i][j]$. It represents the remaining instances of resource $j$ that process $i$ may still request before completing.
+#### Q12: Why have you used POSIX threads in your concurrent activity logger?
+> **Model Answer**:
+> POSIX threads (`pthreads`) provide lightweight, shared-memory concurrency within the same process.
+> Instead of pausing the main CPU scheduler to perform slow disk I/O, compute tasks spawn producer threads that instantly drop log events into an in-memory buffer. A separate background consumer thread handles formatting and writing them asynchronously to `campuscompute.log`. This decouples compute throughput from disk latency.
 
-**Q19: What is the condition for process $P_i$ to finish in the safety algorithm?**
-> **Answer**: $\text{Finish}[i] == \text{false}$ and $\text{Need}_i \le \text{Work}$. When this condition is met, $P_i$ is assumed to run to completion and release all its currently allocated resources back to the pool: $\text{Work} = \text{Work} + \text{Allocation}_i$.
+#### Q13: Explain the producer-consumer problem. Who is the producer and who is the consumer in your implementation?
+> **Model Answer**:
+> The producer-consumer problem is a classic synchronization challenge where one or more producer threads insert data into a fixed-size bounded buffer, and one or more consumer threads remove data from it.
+> - **Requirement**: Producers must sleep when the buffer is full; consumers must sleep when the buffer is empty; and buffer manipulation must be mutually exclusive.
+> - **In CampusCompute (`logger.c`)**:
+>   - **Producers**: 3 concurrent worker threads (`producer_thread`), each generating 5 log events (total 15 events + 2 system lifecycle events).
+>   - **Consumer**: 1 dedicated logger thread (`consumer_thread`) that dequeues events, prints them, and flushes them to disk.
 
-### Process Management & Worker Failure
-**Q20: What does `fork()` return in parent and child?**
-> **Answer**: In the parent process, `fork()` returns the Process ID (PID) of the newly created child process. In the child process, it returns `0`. If process creation fails, it returns `-1`.
+#### Q14: What is a mutex? What problem can occur if you do not protect the shared queue using a mutex?
+> **Model Answer**:
+> A **mutex** (`pthread_mutex_t`) is a mutual exclusion locking primitive ensuring that only one thread can execute a critical section at any given time.
+> **If the shared queue is not protected**:
+> 1. **Race Conditions on Indices**: Two producers could simultaneously read `tail`, write into the same slot, and overwrite each other's data.
+> 2. **Lost Updates on Counter**: The `count` variable involves non-atomic read-modify-write CPU instructions (`count++`, `count--`). Concurrent updates cause lost increments/decrements, leading to buffer overflow, buffer underflow, or queue corruption.
 
-**Q21: Why do we call `fflush(stdout)` before `fork()`?**
-> **Answer**: Standard C library I/O buffers (`stdout`) are duplicated in the child process upon `fork()`. If there is unflushed text in the buffer, both parent and child will flush it upon termination, causing duplicate lines in output. Flushing before fork guarantees clean process separation.
+#### Q15: Why are condition variables required in your implementation? How do you handle a full or empty queue?
+> **Model Answer**:
+> Condition variables (`pthread_cond_t`) allow threads to sleep efficiently without busy-waiting (spinning in a CPU loop).
+> - **Full Queue**: When `count == QUEUE_CAPACITY` (8), the producer calls `pthread_cond_wait(&not_full, &lock)`. This atomically releases the mutex and suspends the producer. When the consumer dequeues an item, it calls `pthread_cond_signal(&not_full)` to wake a producer.
+> - **Empty Queue**: When `count == 0`, the consumer calls `pthread_cond_wait(&not_empty, &lock)`. When a producer enqueues an item, it calls `pthread_cond_signal(&not_empty)` to wake the consumer.
+> - **`while` Loop Check**: `pthread_cond_wait` is always wrapped inside a `while (condition)` loop to handle **spurious wakeups** (where the kernel wakes a thread without a signal) and race conditions where another thread claimed the slot first.
 
-**Q22: How does the parent process inspect the termination status of a child?**
-> **Answer**: Using POSIX macros on the status integer returned by `waitpid()`:
-> - `WIFEXITED(status)`: True if child terminated normally (via `exit` or return).
-> - `WEXITSTATUS(status)`: Evaluates to the exit code passed by the child (e.g., 0 for success, 42 for simulated failure).
-> - `WIFSIGNALED(status)`: True if child was terminated by an unhandled signal.
-> - `WTERMSIG(status)`: Returns the signal number that killed the child (e.g., `SIGXCPU`).
+---
 
-**Q23: What is a zombie process and how did your program avoid it?**
-> **Answer**: A zombie process occurs when a child process terminates but its parent has not yet read its exit status via `wait()` or `waitpid()`. The process table entry remains allocated. Our program always calls `waitpid()` to reap every child process immediately, and the `--cleanup` routine cleans up any stray children.
+### Section 4: Inter-Process Communication
 
-### Resource Limits & Error Handling
-**Q24: What is the difference between a Soft Limit and a Hard Limit in `setrlimit`?**
-> **Answer**: The soft limit (`rlim_cur`) is the active threshold enforced by the kernel. When breached, the kernel notifies the process (e.g., sends `SIGXCPU`). The hard limit (`rlim_max`) is the ceiling for the soft limit. Unprivileged processes can lower their hard limit or adjust their soft limit up to the hard limit, but only the root user (`CAP_SYS_RESOURCE`) can increase the hard limit.
+#### Q16: What is Inter-Process Communication (IPC)? Why have you selected shared memory for this project?
+> **Model Answer**:
+> IPC is a set of OS mechanisms that allow distinct processes with isolated virtual address spaces to exchange data and synchronize.
+> We selected **POSIX Shared Memory** because it is the **fastest IPC mechanism available in Linux**:
+> - Unlike pipes, FIFOs, or sockets, which require copying data from user space to kernel buffer and back to user space (2 context switches and 2 memory copies), shared memory maps physical RAM pages directly into the address spaces of both processes.
+> - Once mapped, communication occurs at native memory bus speed with **zero kernel memory copying**.
 
-**Q25: How does your program handle invalid inputs or malformed commands?**
-> **Answer**:
-> - In `input.c`, `read_int()` validates every input using `fgets()` and `strtol()`, safely purging trailing buffer characters and checking lower and upper bounds, re-prompting until valid input is given.
-> - In `main.c`, unrecognized CLI flags print a standardized error and usage message and exit with code 1.
-> - In the interactive menu, invalid numbers or non-numeric strings are caught and flagged with `[Error] Invalid command`.
+#### Q17: How do two processes exchange information through POSIX shared memory in your implementation?
+> **Model Answer**:
+> In `ipc.c`, communication follows a 6-step lifecycle:
+> 1. **Creation**: Parent calls `shm_open("/cc_shm_PID", O_CREAT | O_EXCL | O_RDWR, 0600)` to create a shared memory object under `/dev/shm`.
+> 2. **Allocation**: Parent calls `ftruncate(fd, sizeof(Packet))` to set the physical segment size.
+> 3. **Mapping**: Both parent and child call `mmap(NULL, sizeof(Packet), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)` to map the segment to a `Packet*` pointer.
+> 4. **Transfer & Handshake**:
+>    - Parent writes job data (`job_id`, `name`, `burst`) into the mapped `Packet` and calls `sem_post(sem_ready)`.
+>    - Child, waiting on `sem_timedwait(sem_ready, &timeout)`, wakes up, reads the job, processes it, writes response data into `packet->response`, and calls `sem_post(sem_done)`.
+>    - Parent, waiting on `sem_timedwait(sem_done, &timeout)`, reads the response.
+> 5. **Reaping**: Parent calls `waitpid()` to cleanly reap the child process.
+> 6. **Cleanup**: Both processes call `munmap()` and `close()`, and the parent calls `shm_unlink()` and `sem_unlink()`.
+
+#### Q18: What is the purpose of a semaphore? How is it different from a mutex?
+> **Model Answer**:
+> A semaphore is a kernel-supported synchronization variable that maintains an integer counter to control access to shared resources or coordinate execution order.
+> **Differences between Semaphore and Mutex**:
+> 1. **Ownership**: A mutex has ownership—only the specific thread that called `lock()` is permitted to call `unlock()`. A semaphore has no ownership—Process A can wait (`sem_wait`), and Process B can signal (`sem_post`).
+> 2. **Scope**: Mutexes are designed for threads within a single process. Named POSIX semaphores (`sem_open`) synchronize separate independent processes across the operating system.
+> 3. **Value Range**: A mutex is strictly binary (0 or 1). A counting semaphore can take any non-negative integer value ($0, 1, 2, \dots, N$).
+
+---
+
+### Section 5: Resource Management and Process Handling
+
+#### Q19: Explain the Banker's Algorithm. What are Available, Allocation, Maximum and Need?
+> **Model Answer**:
+> Banker's Algorithm is a classic **deadlock avoidance** algorithm designed by Edsger Dijkstra. When a process requests resources, the OS simulates resource allocation to determine if granting the request leaves the system in a **Safe State**.
+> - **Available $[m]$**: 1D array of length $m$ representing the number of currently unallocated instances of each resource type.
+> - **Allocation $[n][m]$**: 2D matrix where `Allocation[i][j]` is the number of instances of resource $j$ currently held by process $i$.
+> - **Maximum $[n][m]$**: 2D matrix where `Max[i][j]` is the maximum resource demand declared by process $i$.
+> - **Need $[n][m]$**: 2D matrix representing remaining resources process $i$ may still request before completion:
+>   $$\text{Need}[i][j] = \text{Maximum}[i][j] - \text{Allocation}[i][j]$$
+
+#### Q20: What is the difference between a safe state and an unsafe state? Demonstrate both using your implementation.
+> **Model Answer**:
+> - **Safe State**: A state in which there exists at least one ordering of processes (a **Safe Sequence** $\langle P_{s1}, P_{s2}, \dots, P_{sn} \rangle$) such that each process can satisfy its maximum resource needs using currently available resources plus the resources released by earlier processes, guaranteeing no deadlock.
+> - **Unsafe State**: A state where no safe sequence exists. If all processes simultaneously demand their maximum resource claims, circular wait occurs, leading to **deadlock**. (Note: An unsafe state does not guarantee immediate deadlock, but the OS can no longer guarantee deadlock prevention).
+> **Demonstration**:
+> - Safe State: `./campuscompute --banker-safe` $\implies$ finds safe sequence $\langle P_1, P_3, P_4, P_0, P_2 \rangle$.
+> - Unsafe State: `./campuscompute --banker-file samples/banker_unsafe.txt` $\implies$ Available $[0, 1, 0]$ cannot satisfy any process's need; flags `UNSAFE state (deadlock possible)`.
+
+#### Q21: What is the purpose of fork() and waitpid()? How does your parent process detect whether a child process completed successfully or failed?
+> **Model Answer**:
+> - `fork()` creates a new child process by duplicating the calling parent process's address space. In the parent, `fork()` returns the child PID; in the child, it returns 0; on failure, it returns -1.
+> - `waitpid(pid, &status, options)` suspends the calling parent process until the child process terminates, retrieving its termination status and releasing its process table entry (preventing zombie processes).
+> **Detection Mechanism**:
+> The parent inspects `status` using POSIX macros:
+> 1. `WIFEXITED(status)`: Evaluates to true if the child terminated normally (via `exit()` or `return`).
+> 2. `WEXITSTATUS(status)`: Extracts the exit code (0–255). If `WEXITSTATUS(status) == 0`, the child completed successfully. If non-zero (e.g. 42), the parent detects application-level failure.
+> 3. `WIFSIGNALED(status)`: Evaluates to true if the child was killed by an unhandled signal; `WTERMSIG(status)` gives the signal number (e.g. `SIGXCPU`).
+
+#### Q22: How have you simulated worker failure? How do you distinguish a simulated failure from an actual operating-system failure?
+> **Model Answer**:
+> - In `worker.c`, worker failure is simulated by having the child process deliberately call `exit(42)` (or an arbitrary exit code supplied via `--worker-custom`).
+> **Distinguishing Controlled Failure vs OS Crash**:
+> - **Simulated / Controlled Failure**: `WIFEXITED(status)` is **true**, and `WEXITSTATUS(status) == 42`. The process terminated cleanly through normal system exit, but returned a failure status code.
+> - **Actual OS Crash**: `WIFEXITED(status)` is **false**, and `WIFSIGNALED(status)` is **true**. The process was forcibly killed by the kernel due to a fault, such as `SIGSEGV` (signal 11, invalid memory access) or `SIGFPE` (signal 8, division by zero).
+
+#### Q23: What is setrlimit()? Which resource limit have you applied, and what effect did you observe?
+> **Model Answer**:
+> `setrlimit()` is a Linux system call that sets soft and hard resource limits for the calling process (`struct rlimit { rlim_cur, rlim_max }`).
+> - In `rlimit.c`, we applied `RLIMIT_CPU` with a soft limit of 1 second (`rlim_cur = 1`) and hard limit of 2 seconds (`rlim_max = 2`).
+> - **Observed Effect**: When the child process enters a compute-heavy CPU loop, the instant its accumulated user-space CPU consumption reaches 1.0 second, the Linux kernel generates `SIGXCPU` (signal 24). The child's signal handler traps `SIGXCPU`, prints a resource violation notification, and terminates. The parent reaps the child with `waitpid()` and confirms abnormal termination via `WIFSIGNALED(status) && WTERMSIG(status) == SIGXCPU`.
+
+---
+
+### Section 6: Integration and Code Verification
+
+#### Q24: What happens if your program encounters an error during shared-memory or semaphore creation? How do you ensure that resources are cleaned up?
+> **Model Answer**:
+> In `ipc.c`, creation steps (`shm_open`, `ftruncate`, `mmap`, `sem_open`) are guarded by immediate error checks (`< 0` or `SEM_FAILED`).
+> - If an error occurs at any step, the program executes a **structured rollback**:
+>   1. If `sem_done` failed, `sem_close(sem_ready)` and `sem_unlink("/cc_sem_ready_PID")` are called.
+>   2. If `mmap` failed, descriptors are closed and `shm_unlink("/cc_shm_PID")` is called.
+>   3. Errors are reported via `perror()` and the program safely exits without leaking IPC objects into `/dev/shm`.
+> - Additionally, CampusCompute uses **PID-scoped names** (`/cc_shm_<pid>`), ensuring no name collisions across concurrent runs, and provides a dedicated cleanup verification command (`./campuscompute --cleanup`) that unlinks any lingering objects.
+
+#### Q25: If I ask you to add a new scheduling algorithm, such as Shortest Job First (SJF), which part of your code would you modify? Explain how you would integrate it without affecting the existing algorithms.
+> **Model Answer**:
+> Thanks to modular separation, adding SJF requires modifying only 2 files while leaving existing algorithms completely untouched:
+> 1. **`scheduler.h`**: Declare the prototype:
+>    ```c
+>    void schedule_sjf(Job jobs[], int count, Metrics *m);
+>    ```
+> 2. **`scheduler.c`**: Implement `schedule_sjf()` by adapting `schedule_priority()`:
+>    - At current logical clock time $t$, identify all arrived jobs ($AT \le t$).
+>    - Pick the job with the smallest CPU burst time ($BT$), breaking ties with arrival time ($AT$) and Job ID.
+>    - Advance clock by the job's burst time, and compute $CT, TAT, WT, RT$.
+> 3. **`main.c`**: Add an option in `print_menu()` and a `--sjf` CLI flag in `parse_args()`.
+> Existing FCFS, Round Robin, and Priority functions remain 100% unaffected.
+
