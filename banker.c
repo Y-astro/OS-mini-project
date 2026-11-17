@@ -39,34 +39,50 @@ static void print_state(const State *s, Matrix need) {
     printf("\n\n");
 }
 
-/* Banker's safety algorithm. Returns true and fills seq[] if the state is safe. */
+/*
+ * Banker's Safety Algorithm:
+ * Checks whether the current resource allocation state is SAFE.
+ * A state is safe if there exists a Safe Sequence <P0, P1, ... Pn-1>
+ * where each process can finish by obtaining its maximum claim.
+ */
 static bool is_safe(const State *s, Matrix need, int seq[]) {
     int work[MAX_RESOURCES];
     bool finished[MAX_PROCESSES] = { false };
     int count = 0;
 
+    /* Step 1: Initialize Work = Available vector */
     memcpy(work, s->avail, sizeof(work));
+
+    /* Step 2: Repeat until all processes finish or no progress can be made */
     while (count < s->p) {
         bool progress = false;
+
+        /* Find an unfinished process whose Need can be satisfied by current Work */
         for (int i = 0; i < s->p; i++) {
             if (finished[i]) continue;
+
             bool fits = true;
             for (int j = 0; j < s->r; j++) {
                 if (need[i][j] > work[j]) fits = false;
             }
             if (!fits) continue;
 
+            /* Step 3: Process finishes, reclaims its allocated resources back to Work */
             for (int j = 0; j < s->r; j++) work[j] += s->alloc[i][j];
             printf("  P%d can finish (Need <= Work); Work becomes [ ", i);
             for (int j = 0; j < s->r; j++) printf("%d ", work[j]);
             printf("]\n");
+
             finished[i] = true;
             seq[count++] = i;
             progress = true;
         }
+
+        /* If no process could proceed in this pass, system cannot make progress */
         if (!progress) break;
     }
 
+    /* Step 4: If not all processes finished, report blocked processes (deadlock) */
     if (count < s->p) {
         printf("  No remaining process has Need <= Work. Blocked: ");
         for (int i = 0; i < s->p; i++) {
@@ -74,6 +90,8 @@ static bool is_safe(const State *s, Matrix need, int seq[]) {
         }
         printf("\n");
     }
+
+    /* Safe if and only if all processes finished */
     return count == s->p;
 }
 
@@ -81,13 +99,17 @@ static bool analyse(const State *s) {
     Matrix need;
     int seq[MAX_PROCESSES];
 
+    /* Step 1: Calculate Need Matrix = Maximum - Allocation */
     for (int i = 0; i < s->p; i++) {
         for (int j = 0; j < s->r; j++) need[i][j] = s->max[i][j] - s->alloc[i][j];
     }
     print_state(s, need);
+
+    /* Step 2: Execute Safety Algorithm */
     printf("Safety check:\n");
     bool safe = is_safe(s, need, seq);
 
+    /* Step 3: Display Result and Safe Sequence (if safe) */
     if (safe) {
         printf("\nRESULT: SAFE state. Safe sequence: <");
         for (int i = 0; i < s->p; i++) printf(" P%d", seq[i]);

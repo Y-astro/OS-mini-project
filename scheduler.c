@@ -163,22 +163,30 @@ static int pick(const Job jobs[], const bool done[], int n, int now, Policy p) {
     return best;
 }
 
+/* Simulates non-preemptive policies (FCFS and Priority) */
 static void simulate_nonpreemptive(Job jobs[], int n, Policy p, Metrics m[], Timeline *t) {
     bool done[MAX_JOBS] = { false };
     int now = 0;
 
     for (int finished = 0; finished < n; finished++) {
+        /* Step 1: Pick the highest priority/earliest arrival job that has already arrived */
         int next = pick(jobs, done, n, now, p);
+
+        /* Step 2: If CPU is idle (no job arrived yet), advance time to earliest arrival */
         if (next < 0) {
             int wake = earliest_arrival(jobs, done, n);
-            add_slice(t, 0, now, wake);
+            add_slice(t, 0, now, wake); /* IDLE slice */
             now = wake;
             next = pick(jobs, done, n, now, p);
         }
+
+        /* Step 3: Run the job non-preemptively until completion */
         strcpy(jobs[next].status, "RUNNING");
         add_slice(t, jobs[next].id, now, now + jobs[next].burst);
         now += jobs[next].burst;
         done[next] = true;
+
+        /* Step 4: Record Completion Time, TAT, and Waiting Time */
         finish(&jobs[next], &m[next], now);
     }
 }
@@ -194,6 +202,7 @@ static int queue_pop(Queue *q) {
     return v;
 }
 
+/* Admits newly arrived jobs into the ready queue ordered by arrival time, then Job ID */
 static void admit_arrivals(const Job jobs[], int n, int now, bool admitted[], Queue *q) {
     while (1) {
         int best = -1;
@@ -211,7 +220,11 @@ static void admit_arrivals(const Job jobs[], int n, int now, bool admitted[], Qu
     }
 }
 
-/* New arrivals join the queue before a preempted job is re-queued. */
+/*
+ * Round Robin Scheduling:
+ * Preemptive scheduling with a fixed time quantum.
+ * Rule: New arrivals join the queue before a preempted job is re-queued.
+ */
 static void simulate_rr(Job jobs[], int n, Metrics m[], Timeline *t) {
     int remaining[MAX_JOBS];
     bool admitted[MAX_JOBS] = { false };
@@ -221,23 +234,32 @@ static void simulate_rr(Job jobs[], int n, Metrics m[], Timeline *t) {
     for (int i = 0; i < n; i++) remaining[i] = jobs[i].burst;
 
     while (finished < n) {
+        /* Step 1: Admit all jobs that have arrived by current time 'now' */
         admit_arrivals(jobs, n, now, admitted, &q);
+
+        /* Step 2: If queue is empty, jump CPU to next job's arrival time */
         if (q.head == q.tail) {
             int wake = earliest_arrival(jobs, admitted, n);
             if (wake < 0) break;
-            add_slice(t, 0, now, wake);
+            add_slice(t, 0, now, wake); /* IDLE slice */
             now = wake;
             continue;
         }
 
+        /* Step 3: Pop next job from head of ready queue */
         int cur = queue_pop(&q);
         int run = remaining[cur] < current_quantum ? remaining[cur] : current_quantum;
+
+        /* Step 4: Execute job for up to current_quantum time units */
         strcpy(jobs[cur].status, "RUNNING");
         add_slice(t, jobs[cur].id, now, now + run);
         now += run;
         remaining[cur] -= run;
+
+        /* Step 5: Admit any newly arrived jobs during this time slice */
         admit_arrivals(jobs, n, now, admitted, &q);
 
+        /* Step 6: If job still needs CPU, re-queue at tail; otherwise mark complete */
         if (remaining[cur] > 0) {
             queue_push(&q, cur);
         } else {

@@ -68,10 +68,17 @@ static int wait_sem(sem_t *s) {
 }
 
 static void child_main(Packet *pkt, sem_t *ready, sem_t *done) {
+    /* Step 1: Wait until parent signals that job data is ready in shared memory */
     if (wait_sem(ready) == -1) child_exit(1);
+
+    /* Step 2: Read job details from shared memory */
     printf("  [Child %d] read from shared memory: job %d '%s', burst %d\n",
            getpid(), pkt->job_id, pkt->name, pkt->burst);
+
+    /* Step 3: Write response back into shared memory */
     snprintf(pkt->response, sizeof(pkt->response), "job %d executed by child %d", pkt->job_id, getpid());
+
+    /* Step 4: Signal parent that computation and response are done */
     sem_post(done);
     child_exit(0);
 }
@@ -90,26 +97,36 @@ int ipc_demo(void) {
     printf("\n=== Shared memory + named semaphore IPC ===\n");
     ipc_cleanup();      /* remove leftovers from an earlier crashed run */
 
+    /* Step 1: Create POSIX shared memory object under /dev/shm */
     fd = shm_open(shm_name, O_CREAT | O_EXCL | O_RDWR, 0600);
     if (fd == -1) { perror("shm_open"); goto out; }
+
+    /* Step 2: Set the size of the shared memory region */
     if (ftruncate(fd, sizeof(Packet)) == -1) { perror("ftruncate"); goto out; }
+
+    /* Step 3: Map the shared memory region into virtual address space */
     pkt = mmap(NULL, sizeof(Packet), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (pkt == MAP_FAILED) { perror("mmap"); goto out; }
+
+    /* Step 4: Create POSIX named semaphores initialized to 0 */
     ready = sem_open(sem_ready_name, O_CREAT | O_EXCL, 0600, 0);
     done = sem_open(sem_done_name, O_CREAT | O_EXCL, 0600, 0);
     if (ready == SEM_FAILED || done == SEM_FAILED) { perror("sem_open"); goto out; }
     printf("[Parent %d] created %s, %s, %s\n", getpid(), shm_name, sem_ready_name, sem_done_name);
 
+    /* Step 5: Fork cooperating child process */
     pid = fork_flushed();
     if (pid < 0) { perror("fork"); goto out; }
     if (pid == 0) child_main(pkt, ready, done);
 
+    /* Step 6: Parent writes job data into shared memory and signals child */
     pkt->job_id = 101;
     pkt->burst = 5;
     snprintf(pkt->name, sizeof(pkt->name), "Fluid_Dynamics_Sim");
     printf("[Parent %d] wrote job to shared memory, posting %s\n", getpid(), sem_ready_name);
     sem_post(ready);
 
+    /* Step 7: Parent waits for child response with a timeout */
     if (wait_sem(done) == -1) {
         perror("[Parent] waiting for child");
         kill(pid, SIGKILL);
@@ -121,6 +138,7 @@ int ipc_demo(void) {
     rc = (WIFEXITED(status) && WEXITSTATUS(status) == 0 && pkt->response[0] != '\0') ? 0 : 1;
 
 out:
+    /* Step 8: Clean up all mapped memory, file descriptors, and semaphores */
     if (pkt != MAP_FAILED) munmap(pkt, sizeof(Packet));
     if (fd != -1) close(fd);
     if (ready != SEM_FAILED) sem_close(ready);

@@ -20,26 +20,46 @@ static FILE *log_file;
 static bool active;
 static int written;
 
+/* Producer pushes an event into the bounded buffer */
 static void push(const LogEvent *ev) {
+    /* Step 1: Acquire mutex lock before touching shared queue */
     pthread_mutex_lock(&lock);
+
+    /* Step 2: If queue is full, wait on not_full (releases mutex while sleeping) */
     while (count == LOG_QUEUE_SIZE) {
         printf("  [Producer] queue full (%d/%d), waiting for consumer\n", count, LOG_QUEUE_SIZE);
         pthread_cond_wait(&not_full, &lock);
     }
+
+    /* Step 3: Insert item into circular buffer and increment count */
     queue[tail] = *ev;
     tail = (tail + 1) % LOG_QUEUE_SIZE;
     count++;
+
+    /* Step 4: Signal consumer that queue is not empty */
     pthread_cond_signal(&not_empty);
+
+    /* Step 5: Release mutex lock */
     pthread_mutex_unlock(&lock);
 }
 
+/* Consumer pops an event from the bounded buffer */
 static LogEvent pop(void) {
+    /* Step 1: Acquire mutex lock */
     pthread_mutex_lock(&lock);
+
+    /* Step 2: If queue is empty, wait on not_empty */
     while (count == 0) pthread_cond_wait(&not_empty, &lock);
+
+    /* Step 3: Remove item from circular buffer and decrement count */
     LogEvent ev = queue[head];
     head = (head + 1) % LOG_QUEUE_SIZE;
     count--;
+
+    /* Step 4: Signal waiting producers that space is now available */
     pthread_cond_signal(&not_full);
+
+    /* Step 5: Release mutex lock */
     pthread_mutex_unlock(&lock);
     return ev;
 }
