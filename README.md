@@ -12,8 +12,8 @@
 > **Course Faculty**: Dr. Gokulakrishnan S  
 > **Institution**: PES University  
 > **Team Members**:
-> - **Thirukumaran** (`PES2UG25CS586`)
-> - **Ujan Dutta** (`PES2UG25CS589`)
+> - **Yaduveer Pavan** (`PES2UG25CS609`)
+> - **Yatin R** (`PES2UG25CS617`)
 
 ---
 
@@ -92,10 +92,10 @@ sudo apt update && sudo apt install -y build-essential gcc make zip unzip
 ### Environment Configuration
 Before capturing screenshots or demonstrating, export your SRN to match your terminal prompt and program banner:
 ```bash
-export SRN='PES2UG25CS586'
+export SRN='PES2UG25CS609'
 export PS1='[$SRN] \w\$ '
 ```
-*(When your teammate demonstrates, they simply run `export SRN='PES2UG25CS589'`)*.
+*(When your teammate demonstrates, they simply run `export SRN='PES2UG25CS617'`)*.
 
 ### Compilation
 ```bash
@@ -142,7 +142,7 @@ make zip
 ## 4. Interactive CLI Menu Reference
 
 ```
-CampusCompute - Job Scheduling and Resource Management | PES2UG25CS586
+CampusCompute - Job Scheduling and Resource Management | PES2UG25CS609
 
 Commands (type the number at the prompt, or run ./campuscompute --<flag>):
    1  Input custom jobs (replace current list)   --input
@@ -256,10 +256,10 @@ When the examiner asks live coding or practical questions, execute the correspon
 > [!IMPORTANT]
 > Configure your prompt before taking screenshots:
 > ```bash
-> export SRN='PES2UG25CS586'
+> export SRN='PES2UG25CS609'
 > export PS1='[$SRN] \w\$ '
 > ```
-> Combine all screenshots sequentially into a single PDF named `<YOUR_SRN>.pdf` (e.g., `PES2UG25CS586.pdf`). Each screenshot must be accompanied by the exact one-sentence explanation below.
+> Combine all screenshots sequentially into a single PDF named `<YOUR_SRN>.pdf` (e.g., `PES2UG25CS609.pdf`). Each screenshot must be accompanied by the exact one-sentence explanation below.
 
 | Screenshot # | Execution Command | Required One-Line Explanation |
 |---|---|---|
@@ -298,18 +298,18 @@ make zip
 ```
 Output:
 ```
-zip -r PES2UG25CS586.zip main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c common.h scheduler.h logger.h ipc.h banker.h worker.h rlimit.h Makefile README.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md
+zip -r PES2UG25CS609.zip main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c common.h scheduler.h logger.h ipc.h banker.h worker.h rlimit.h Makefile README.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md
 Verifying archive integrity:
-unzip -t PES2UG25CS586.zip
-No errors detected in compressed data of PES2UG25CS586.zip.
+unzip -t PES2UG25CS609.zip
+No errors detected in compressed data of PES2UG25CS609.zip.
 ```
 
 ---
 
 ## 10. Authors & Acknowledgments
 
-- **Thirukumaran** (`PES2UG25CS586`) — Department of Computer Science and Engineering, PES University
-- **Ujan Dutta** (`PES2UG25CS589`) — Department of Computer Science and Engineering, PES University
+- **Yaduveer Pavan** (`PES2UG25CS609`) — Department of Computer Science and Engineering, PES University
+- **Yatin R** (`PES2UG25CS617`) — Department of Computer Science and Engineering, PES University
 - **Course Instructor**: Dr. Gokulakrishnan S, Department of Computer Science and Engineering, PES University
 
 ---
