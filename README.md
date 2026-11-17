@@ -309,3 +309,25 @@ No errors detected in compressed data of PES2UG25CS586.zip.
 - **Thirukumaran** (`PES2UG25CS586`) — Department of Computer Science and Engineering, PES University
 - **Ujan Dutta** (`PES2UG25CS589`) — Department of Computer Science and Engineering, PES University
 - **Course Instructor**: Dr. Gokulakrishnan S, Department of Computer Science and Engineering, PES University
+
+---
+
+## Live Demo Without Hardcoded Data
+
+The built-in 5-job workload and Banker states are only defaults. For a live demo, feed the program data it has never seen:
+
+```bash
+# Scheduler on a workload the examiner dictates (file: "arrival burst priority" per line)
+./campuscompute --jobs samples/jobs_lab.txt --compare
+./campuscompute --jobs samples/jobs_lab.txt --rr 3        # chain: load, then run RR with quantum 3
+
+# Random workload; the seed is printed so you can reproduce it, or set SEED=7 for a fixed one
+./campuscompute --random 8 --compare
+SEED=7 ./campuscompute --random 6 --fcfs
+
+# Banker's algorithm on a state file (P R, Allocation, Max, Available; '#' comments allowed)
+./campuscompute --banker-file samples/banker_unsafe.txt
+```
+
+Interactive menu equivalents: `jobs`, `random`, `banker-file`, `input`, `add-job`, `banker-input`, `logger-custom`, `logger-msg`, `ipc-custom`, `worker-custom`.
+Suggested viva flow: let the examiner type a job list into a file or the `input` command, run all three policies, and verify one Gantt chart by hand on the board.

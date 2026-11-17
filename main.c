@@ -9,6 +9,18 @@
 
 static Job jobs[MAX_JOBS];
 static int num_jobs;
+static const char *cli_arg; /* argument following a flag, e.g. --jobs FILE */
+
+/* Uses the CLI argument if given, otherwise prompts for it. */
+static const char *get_arg(const char *prompt, char *buf, size_t n) {
+  if (cli_arg)
+    return cli_arg;
+  printf("%s", prompt);
+  if (!fgets(buf, (int)n, stdin))
+    return NULL;
+  buf[strcspn(buf, "\r\n")] = '\0';
+  return buf[0] ? buf : NULL;
+}
 
 typedef struct {
   const char *flag; /* command-line form: ./campuscompute --<flag> */
@@ -22,6 +34,30 @@ static int cmd_default(void) {
   scheduler_load_default_jobs(jobs, &num_jobs);
   printf("Loaded %d default jobs.\n", num_jobs);
   return 0;
+}
+static int cmd_jobs_file(void) {
+  char buf[256];
+  const char *p = get_arg("Path to jobs file: ", buf, sizeof(buf));
+  return p ? scheduler_load_file(jobs, &num_jobs, p) : 1;
+}
+static int cmd_random(void) {
+  char buf[64];
+  const char *p = get_arg("Number of random jobs (1-20): ", buf, sizeof(buf));
+  if (!p)
+    return 1;
+  int count = atoi(p);
+  unsigned seed = 0;
+  if (cli_arg && getenv("SEED"))
+    seed = (unsigned)strtoul(getenv("SEED"), NULL, 10);
+  int r = scheduler_generate_random(jobs, &num_jobs, count, seed);
+  if (r == 0)
+    scheduler_display_jobs(jobs, num_jobs);
+  return r;
+}
+static int cmd_banker_file(void) {
+  char buf[256];
+  const char *p = get_arg("Path to Banker state file: ", buf, sizeof(buf));
+  return p ? banker_from_file(p) : 1;
 }
 static int cmd_add(void) { return scheduler_add_job(jobs, &num_jobs); }
 static int cmd_edit_pri(void) {
@@ -41,6 +77,10 @@ static int cmd_cleanup(void);
 
 static const Command commands[] = {
     {"input", "Input custom jobs (replace current list)", cmd_input, false},
+    {"jobs", "Load jobs from a file (arrival burst priority)", cmd_jobs_file,
+     false},
+    {"random", "Generate random jobs (env SEED=n to reproduce)", cmd_random,
+     false},
     {"default", "Load default workload (5 jobs)", cmd_default, false},
     {"add-job", "Add a new job to current workload", cmd_add, false},
     {"edit-priority", "Change an existing job's priority", cmd_edit_pri, false},
@@ -62,6 +102,8 @@ static const Command commands[] = {
     {"banker-safe", "Banker's algorithm: safe state", banker_demo_safe, true},
     {"banker-unsafe", "Banker's algorithm: unsafe state", banker_demo_unsafe,
      true},
+    {"banker-file", "Banker's algorithm: load state from file",
+     cmd_banker_file, false},
     {"banker-input", "Banker's algorithm: enter your own state",
      banker_input_and_check, false},
     {"worker-ok", "Worker process: normal completion", worker_demo_normal,
@@ -198,9 +240,34 @@ int main(int argc, char *argv[]) {
         scheduler_set_quantum(q);
       return cmd_rr();
     }
-    for (int i = 0; i < NUM_COMMANDS; i++) {
-      if (strcmp(argv[1] + 2, commands[i].flag) == 0)
-        return commands[i].run();
+    /* Options: --jobs FILE | --random N | --banker-file FILE, optionally
+     * followed by --<command> to run on that data in the same invocation,
+     * e.g.  ./campuscompute --jobs my.txt --compare */
+    int i = 1;
+    while (i < argc && strncmp(argv[i], "--", 2) == 0) {
+      const char *name = argv[i] + 2;
+      int k;
+      for (k = 0; k < NUM_COMMANDS; k++)
+        if (strcmp(name, commands[k].flag) == 0)
+          break;
+      if (k == NUM_COMMANDS)
+        break;
+      bool takes_arg = strcmp(name, "jobs") == 0 ||
+                       strcmp(name, "random") == 0 ||
+                       strcmp(name, "banker-file") == 0;
+      cli_arg = NULL;
+      if (takes_arg) {
+        if (i + 1 >= argc) {
+          fprintf(stderr, "[Error] --%s needs an argument\n", name);
+          return 1;
+        }
+        cli_arg = argv[++i];
+      }
+      int rc = commands[k].run();
+      cli_arg = NULL;
+      if (rc != 0 || !takes_arg || i + 1 >= argc)
+        return rc;
+      i++; /* chain: data option consumed, run the next command */
     }
   }
   fprintf(stderr, "[Error] Unknown option or arguments: '%s'\n",

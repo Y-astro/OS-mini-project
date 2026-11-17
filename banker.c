@@ -182,3 +182,50 @@ int banker_input_and_check(void) {
   analyse(&s);
   return 0;
 }
+
+/* Reads whitespace-separated integers, skipping '#' comment lines. */
+static bool next_int(FILE *f, int *out) {
+  int c;
+  while ((c = fgetc(f)) != EOF) {
+    if (c == '#') {
+      while ((c = fgetc(f)) != EOF && c != '\n')
+        ;
+    } else if (c == '-' || (c >= '0' && c <= '9')) {
+      ungetc(c, f);
+      return fscanf(f, "%d", out) == 1;
+    }
+  }
+  return false;
+}
+
+/* File format: P R, then P rows of Allocation, P rows of Max, then Available.
+ */
+int banker_from_file(const char *path) {
+  FILE *f = fopen(path, "r");
+  if (!f) {
+    printf("[Error] Cannot open \"%s\": %s\n", path, strerror(errno));
+    return 1;
+  }
+  State s;
+  memset(&s, 0, sizeof(s));
+  bool ok = next_int(f, &s.p) && next_int(f, &s.r) && s.p >= 1 &&
+            s.p <= MAX_PROCESSES && s.r >= 1 && s.r <= MAX_RESOURCES;
+  for (int i = 0; ok && i < s.p; i++)
+    for (int j = 0; ok && j < s.r; j++)
+      ok = next_int(f, &s.alloc[i][j]) && s.alloc[i][j] >= 0;
+  for (int i = 0; ok && i < s.p; i++)
+    for (int j = 0; ok && j < s.r; j++)
+      ok = next_int(f, &s.max[i][j]) && s.max[i][j] >= s.alloc[i][j];
+  for (int j = 0; ok && j < s.r; j++)
+    ok = next_int(f, &s.avail[j]) && s.avail[j] >= 0;
+  fclose(f);
+  if (!ok) {
+    printf("[Error] %s: malformed state (need P R, Alloc, Max, Available; "
+           "Max >= Alloc)\n",
+           path);
+    return 1;
+  }
+  printf("\n=== Banker's algorithm: state loaded from %s ===\n", path);
+  analyse(&s);
+  return 0;
+}

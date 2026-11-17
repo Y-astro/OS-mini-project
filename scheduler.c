@@ -1,5 +1,6 @@
 #include "scheduler.h"
 #include "logger.h"
+#include <time.h>
 
 #define MAX_SLICES 2048
 
@@ -48,6 +49,73 @@ void scheduler_load_default_jobs(Job jobs[], int *n) {
     jobs[i] = (Job){data[i][0], data[i][1], data[i][2], data[i][3], "READY"};
   }
   *n = 5;
+}
+
+/* Loads jobs from a text file: one job per line "arrival burst priority".
+ * Blank lines and '#' comments are ignored. Replaces the current workload
+ * only if the whole file is valid. */
+int scheduler_load_file(Job jobs[], int *n, const char *path) {
+  FILE *f = fopen(path, "r");
+  if (!f) {
+    printf("[Error] Cannot open \"%s\": %s\n", path, strerror(errno));
+    return 1;
+  }
+  Job tmp[MAX_JOBS];
+  int count = 0, lineno = 0;
+  char line[256];
+  while (fgets(line, sizeof(line), f)) {
+    lineno++;
+    char *hash = strchr(line, '#');
+    if (hash)
+      *hash = '\0';
+    int a, b, p;
+    char extra;
+    int got = sscanf(line, " %d %d %d %c", &a, &b, &p, &extra);
+    if (got <= 0)
+      continue; /* blank or comment-only line */
+    if (got != 3 || a < 0 || a > MAX_ARRIVAL || b < 1 || b > MAX_BURST ||
+        p < 1 || p > 99) {
+      printf("[Error] %s:%d: expected \"arrival(0-%d) burst(1-%d) "
+             "priority(1-99)\"\n",
+             path, lineno, MAX_ARRIVAL, MAX_BURST);
+      fclose(f);
+      return 1;
+    }
+    if (count >= MAX_JOBS) {
+      printf("[Error] %s: more than %d jobs\n", path, MAX_JOBS);
+      fclose(f);
+      return 1;
+    }
+    tmp[count] = (Job){count + 1, a, b, p, "READY"};
+    count++;
+  }
+  fclose(f);
+  if (count == 0) {
+    printf("[Error] %s contains no jobs\n", path);
+    return 1;
+  }
+  memcpy(jobs, tmp, count * sizeof(Job));
+  *n = count;
+  printf("Loaded %d jobs from %s.\n", count, path);
+  return 0;
+}
+
+/* Generates n random jobs. seed 0 = time-based, so every run differs. */
+int scheduler_generate_random(Job jobs[], int *n, int count, unsigned seed) {
+  if (count < 1 || count > MAX_JOBS) {
+    printf("[Error] Job count must be 1-%d\n", MAX_JOBS);
+    return 1;
+  }
+  if (seed == 0)
+    seed = (unsigned)time(NULL) ^ (unsigned)getpid();
+  srand(seed);
+  for (int i = 0; i < count; i++)
+    jobs[i] = (Job){i + 1, rand() % 10, 1 + rand() % 12, 1 + rand() % 5,
+                    "READY"};
+  *n = count;
+  printf("Generated %d random jobs (seed %u - reuse it to reproduce).\n",
+         count, seed);
+  return 0;
 }
 
 int scheduler_input_jobs(Job jobs[], int *n) {

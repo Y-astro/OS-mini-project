@@ -28,7 +28,7 @@ clean:
 	rm -f $(OBJS) $(TARGET) campuscompute.log *.zip
 
 zip: clean
-	zip -r $(SRN).zip $(SRCS) $(HEADERS) Makefile README.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md
+	zip -r $(SRN).zip samples $(SRCS) $(HEADERS) Makefile README.md DEMO_WALKTHROUGH.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md
 	@echo "Verifying archive integrity:"
 	unzip -t $(SRN).zip
 

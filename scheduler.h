@@ -4,6 +4,8 @@
 #include "common.h"
 
 void scheduler_load_default_jobs(Job jobs[], int *n);
+int scheduler_load_file(Job jobs[], int *n, const char *path);
+int scheduler_generate_random(Job jobs[], int *n, int count, unsigned seed);
 int scheduler_input_jobs(Job jobs[], int *n);
 int scheduler_add_job(Job jobs[], int *n);
 int scheduler_edit_job_priority(Job jobs[], int n);
