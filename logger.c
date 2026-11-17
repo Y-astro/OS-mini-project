@@ -126,34 +126,36 @@ int logger_shutdown(void) {
   return written;
 }
 
-#define PRODUCERS 3
-#define EVENTS_PER_PRODUCER 5
+typedef struct {
+  int id;
+  int events;
+} ProducerArg;
 
 static void *produce(void *arg) {
-  int id = *(int *)arg;
+  ProducerArg *pa = (ProducerArg *)arg;
   char msg[LOG_MSG_LEN];
-  for (int i = 1; i <= EVENTS_PER_PRODUCER; i++) {
-    snprintf(msg, sizeof(msg), "Producer-%d: job event #%d", id, i);
+  for (int i = 1; i <= pa->events; i++) {
+    snprintf(msg, sizeof(msg), "Producer-%d: job event #%d", pa->id, i);
     logger_log(msg);
   }
   return NULL;
 }
 
-int logger_demo(void) {
-  pthread_t threads[PRODUCERS];
-  int ids[PRODUCERS];
+static int run_producer_consumer(int num_producers, int events_per_producer) {
+  pthread_t threads[16];
+  ProducerArg args[16];
   int started = 0;
 
-  printf("\n=== Producer-consumer logger (queue size %d, mutex + condition "
-         "variables) ===\n",
-         LOG_QUEUE_SIZE);
+  printf("\n=== Producer-consumer logger (%d producers, %d events each, queue size %d) ===\n",
+         num_producers, events_per_producer, LOG_QUEUE_SIZE);
   if (logger_init() != 0)
     return 1;
 
   logger_log("Logger started");
-  for (int i = 0; i < PRODUCERS; i++) {
-    ids[i] = i + 1;
-    if (pthread_create(&threads[i], NULL, produce, &ids[i]) != 0)
+  for (int i = 0; i < num_producers; i++) {
+    args[i].id = i + 1;
+    args[i].events = events_per_producer;
+    if (pthread_create(&threads[i], NULL, produce, &args[i]) != 0)
       break;
     started++;
   }
@@ -161,10 +163,48 @@ int logger_demo(void) {
     pthread_join(threads[i], NULL);
   logger_log("All producers finished");
 
-  int expected = 2 + started * EVENTS_PER_PRODUCER;
+  int expected = 2 + started * events_per_producer;
   int written_events = logger_shutdown();
   printf("Producers joined, consumer joined. Events produced: %d, written to "
          "%s: %d\n",
          expected, LOG_FILE_NAME, written_events);
-  return (started == PRODUCERS && written_events == expected) ? 0 : 1;
+  return (started == num_producers && written_events == expected) ? 0 : 1;
+}
+
+int logger_demo(void) {
+  return run_producer_consumer(3, 5);
+}
+
+int logger_custom_run(void) {
+  int p = 3, e = 5;
+  printf("\n=== Custom Multithreaded Activity Logger ===\n");
+  if (!read_int("Enter number of producer threads (1-10): ", 1, 10, &p))
+    return 1;
+  if (!read_int("Enter events per producer thread (1-20): ", 1, 20, &e))
+    return 1;
+  return run_producer_consumer(p, e);
+}
+
+int logger_submit_event(void) {
+  char buf[LOG_MSG_LEN];
+  printf("\n=== Submit Custom Log Event to Activity Logger ===\n");
+  printf("Enter log message to enqueue: ");
+  if (!fgets(buf, sizeof(buf), stdin))
+    return 1;
+  buf[strcspn(buf, "\r\n")] = '\0';
+  if (buf[0] == '\0') {
+    printf("[Logger] Empty message, skipped.\n");
+    return 1;
+  }
+  bool was_active = active;
+  if (!was_active && logger_init() != 0)
+    return 1;
+  printf("Pushing event to bounded queue: \"%s\"\n", buf);
+  logger_log(buf);
+  usleep(40000); /* allow consumer thread to dequeue and print */
+  if (!was_active) {
+    logger_shutdown();
+    printf("Log event committed to %s.\n", LOG_FILE_NAME);
+  }
+  return 0;
 }

@@ -153,16 +153,20 @@ Commands (type the number at the prompt, or run ./campuscompute --<flag>):
    8  Round Robin scheduling                     --rr
    9  Priority scheduling (non-preemptive)       --priority
   10  Compare all scheduling policies            --compare
-  11  Producer-consumer logger (pthreads)        --logger
-  12  Shared memory + semaphore IPC              --ipc
-  13  Banker's algorithm: safe state             --banker-safe
-  14  Banker's algorithm: unsafe state           --banker-unsafe
-  15  Banker's algorithm: enter your own state   --banker-input
-  16  Worker process: normal completion          --worker-ok
-  17  Worker process: simulated failure          --worker-fail
-  18  Resource limit demo (RLIMIT_CPU)           --rlimit
-  19  Integrated demonstration                   --demo
-  20  Verify cleanup of threads/IPC/processes    --cleanup
+  11  Producer-consumer logger (default benchmark) --logger
+  12  Producer-consumer logger (custom threads)  --logger-custom
+  13  Logger: submit custom message to queue     --logger-msg
+  14  Shared memory + semaphore IPC (benchmark)  --ipc
+  15  Shared memory IPC: send custom job packet  --ipc-custom
+  16  Banker's algorithm: safe state             --banker-safe
+  17  Banker's algorithm: unsafe state           --banker-unsafe
+  18  Banker's algorithm: enter your own state   --banker-input
+  19  Worker process: normal completion          --worker-ok
+  20  Worker process: simulated failure          --worker-fail
+  21  Worker process: custom simulated exit code --worker-custom
+  22  Resource limit demo (RLIMIT_CPU)           --rlimit
+  23  Integrated demonstration                   --demo
+  24  Verify cleanup of threads/IPC/processes    --cleanup
    0  Clean up and exit
    ?  Show this menu
 ```

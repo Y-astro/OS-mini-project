@@ -97,7 +97,7 @@ static void child_main(Packet *pkt, sem_t *ready, sem_t *done) {
   child_exit(0);
 }
 
-int ipc_demo(void) {
+static int ipc_transfer(int job_id, int burst, const char *name) {
   int rc = 1, fd = -1, status = 0;
   pid_t pid;
   Packet *pkt = MAP_FAILED;
@@ -151,11 +151,11 @@ int ipc_demo(void) {
     child_main(pkt, ready, done);
 
   /* Step 6: Parent writes job data into shared memory and signals child */
-  pkt->job_id = 101;
-  pkt->burst = 5;
-  snprintf(pkt->name, sizeof(pkt->name), "Fluid_Dynamics_Sim");
-  printf("[Parent %d] wrote job to shared memory, posting %s\n", getpid(),
-         sem_ready_name);
+  pkt->job_id = job_id;
+  pkt->burst = burst;
+  snprintf(pkt->name, sizeof(pkt->name), "%s", name);
+  printf("[Parent %d] wrote job %d ('%s', burst %d) to shared memory, posting %s\n",
+         getpid(), pkt->job_id, pkt->name, pkt->burst, sem_ready_name);
   sem_post(ready);
 
   /* Step 7: Parent waits for child response with a timeout */
@@ -191,4 +191,25 @@ out:
          "%d\n",
          left);
   return (rc == 0 && left == 0) ? 0 : 1;
+}
+
+int ipc_demo(void) {
+  return ipc_transfer(101, 5, "Fluid_Dynamics_Sim");
+}
+
+int ipc_custom(void) {
+  int id = 101, burst = 5;
+  char name[64];
+  printf("\n=== Custom Shared Memory IPC Transfer ===\n");
+  if (!read_int("Enter Job ID (1-9999): ", 1, 9999, &id))
+    return 1;
+  printf("Enter Job / Simulation Name: ");
+  if (!fgets(name, sizeof(name), stdin))
+    return 1;
+  name[strcspn(name, "\r\n")] = '\0';
+  if (name[0] == '\0')
+    strcpy(name, "Custom_Lab_Job");
+  if (!read_int("Enter CPU burst (1-100): ", 1, 100, &burst))
+    return 1;
+  return ipc_transfer(id, burst, name);
 }

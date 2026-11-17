@@ -1,4 +1,5 @@
 #include "scheduler.h"
+#include "logger.h"
 
 #define MAX_SLICES 2048
 
@@ -162,6 +163,10 @@ static void finish(Job *j, Metrics *m, int now) {
   m->completion = now;
   m->turnaround = now - j->arrival;
   m->waiting = m->turnaround - j->burst;
+  char buf[LOG_MSG_LEN];
+  snprintf(buf, sizeof(buf), "[Scheduler] Job %d completed (CT=%d, TAT=%d, WT=%d)",
+           j->id, m->completion, m->turnaround, m->waiting);
+  logger_log(buf);
 }
 
 /* Earliest arrival among jobs whose skip[] flag is false. */

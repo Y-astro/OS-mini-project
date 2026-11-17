@@ -2,3 +2,5 @@
 campuscompute
 campuscompute.log
 *.zip
+.~lock.*
+

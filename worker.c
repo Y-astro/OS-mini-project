@@ -4,7 +4,7 @@
 
 #define SIMULATED_FAILURE_CODE 42
 
-static int run_worker(bool simulate_failure) {
+static int run_worker_with_code(bool simulate_failure, int failure_code) {
   int status;
 
   /* Step 1: Flush stdio buffers and fork a child process */
@@ -21,11 +21,11 @@ static int run_worker(bool simulate_failure) {
     usleep(300000); /* Simulate task execution */
 
     if (simulate_failure) {
-      /* Simulated abnormal termination: exits with code 42 */
+      /* Simulated abnormal termination */
       printf("  [Worker %d] SIMULATED FAILURE (deliberate, not a real OS "
              "fault): exit(%d)\n",
-             getpid(), SIMULATED_FAILURE_CODE);
-      child_exit(SIMULATED_FAILURE_CODE);
+             getpid(), failure_code);
+      child_exit(failure_code);
     }
 
     /* Normal successful completion: exits with code 0 */
@@ -57,15 +57,24 @@ static int run_worker(bool simulate_failure) {
          code == 0 ? "COMPLETED"
                    : "FAILED (detected from non-zero exit status)");
 
-  return (code == (simulate_failure ? SIMULATED_FAILURE_CODE : 0)) ? 0 : 1;
+  return (code == (simulate_failure ? failure_code : 0)) ? 0 : 1;
 }
 
 int worker_demo_normal(void) {
   printf("\n=== Worker process: normal completion ===\n");
-  return run_worker(false);
+  return run_worker_with_code(false, 0);
 }
 
 int worker_demo_failure(void) {
   printf("\n=== Worker process: simulated failure ===\n");
-  return run_worker(true);
+  return run_worker_with_code(true, SIMULATED_FAILURE_CODE);
+}
+
+int worker_custom(void) {
+  int code = 0;
+  printf("\n=== Custom Worker Process Simulation ===\n");
+  if (!read_int("Enter simulated worker exit status (0 = success, 1-255 = simulated failure): ",
+                0, 255, &code))
+    return 1;
+  return run_worker_with_code(code != 0, code);
 }
