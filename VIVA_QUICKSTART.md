@@ -47,8 +47,8 @@ Interactive mode: add jobs, edit priority, set quantum, run policies, display st
 |---|---:|---:|---:|---:|
 | FCFS | 8.20 | 13.40 | 8.20 | 5 |
 | Priority | 7.00 | 12.20 | 7.00 | 5 |
-| RR q=2 | 12.60 | 17.80 | 3.20 | 14 |
-| RR q=4 | 12.00 | 17.20 | 7.20 | 8 |
+| RR q=2 | 12.60 | 17.80 | 2.80 | 14 |
+| RR q=4 | 12.00 | 17.20 | 5.40 | 8 |
 
 Safe sequence for built-in Banker state: P1, P3, P4, P0, P2. These are expected values, not a claim that the executable has been tested on your machine.
 
