@@ -1,6 +1,6 @@
 # CampusCompute — Intelligent Job Scheduling and Resource Management
 
-[![Language](https://img.shields.io/badge/Language-C99-00599C?logo=c)](file:///run/media/tin/New%20Volume/Shared/Notes/Sem%203/OS/mini%20project/main.c)
+[![Language](https://img.shields.io/badge/Language-C99-00599C?logo=c)](#)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%2F%20Ubuntu%20%2F%20WSL-E95420?logo=ubuntu)](https://ubuntu.com)
 [![Standards](https://img.shields.io/badge/Standard-POSIX.1--2008-black)](#)
 [![Build](https://img.shields.io/badge/Build-Make%20%7C%20GCC-success)](#)
@@ -10,8 +10,8 @@
 > **Course Faculty**: Dr. Gokulakrishnan S  
 > **Institution**: PES University  
 > **Team Members**:
-> - **Yatin R** (`PES2UG25CS617`)
 > - **Thirukumaran** (`PES2UG25CS586`)
+> - **Ujan Dutta** (`PES2UG25CS589`)
 
 ---
 
@@ -90,10 +90,10 @@ sudo apt update && sudo apt install -y build-essential gcc make zip unzip
 ### Environment Configuration
 Before capturing screenshots or demonstrating, export your SRN to match your terminal prompt and program banner:
 ```bash
-export SRN='PES2UG25CS617'
+export SRN='PES2UG25CS586'
 export PS1='[$SRN] \w\$ '
 ```
-*(When your teammate demonstrates, they simply run `export SRN='PES2UG25CS586'`)*.
+*(When your teammate demonstrates, they simply run `export SRN='PES2UG25CS589'`)*.
 
 ### Compilation
 ```bash
@@ -140,7 +140,7 @@ make zip
 ## 4. Interactive CLI Menu Reference
 
 ```
-CampusCompute - Job Scheduling and Resource Management | PES2UG25CS617
+CampusCompute - Job Scheduling and Resource Management | PES2UG25CS586
 
 Commands (type the number at the prompt, or run ./campuscompute --<flag>):
    1  Input custom jobs (replace current list)   --input
@@ -250,10 +250,10 @@ When the examiner asks live coding or practical questions, execute the correspon
 > [!IMPORTANT]
 > Configure your prompt before taking screenshots:
 > ```bash
-> export SRN='PES2UG25CS617'
+> export SRN='PES2UG25CS586'
 > export PS1='[$SRN] \w\$ '
 > ```
-> Combine all screenshots sequentially into a single PDF named `<YOUR_SRN>.pdf` (e.g., `PES2UG25CS617.pdf`). Each screenshot must be accompanied by the exact one-sentence explanation below.
+> Combine all screenshots sequentially into a single PDF named `<YOUR_SRN>.pdf` (e.g., `PES2UG25CS586.pdf`). Each screenshot must be accompanied by the exact one-sentence explanation below.
 
 | Screenshot # | Execution Command | Required One-Line Explanation |
 |---|---|---|
@@ -292,16 +292,16 @@ make zip
 ```
 Output:
 ```
-zip -r PES2UG25CS617.zip main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c common.h scheduler.h logger.h ipc.h banker.h worker.h rlimit.h Makefile README.md VIVA_GUIDE.md
+zip -r PES2UG25CS586.zip main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c common.h scheduler.h logger.h ipc.h banker.h worker.h rlimit.h Makefile README.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md
 Verifying archive integrity:
-unzip -t PES2UG25CS617.zip
-No errors detected in compressed data of PES2UG25CS617.zip.
+unzip -t PES2UG25CS586.zip
+No errors detected in compressed data of PES2UG25CS586.zip.
 ```
 
 ---
 
 ## 10. Authors & Acknowledgments
 
-- **Yatin R** (`PES2UG25CS617`) — Department of Computer Science and Engineering, PES University
 - **Thirukumaran** (`PES2UG25CS586`) — Department of Computer Science and Engineering, PES University
+- **Ujan Dutta** (`PES2UG25CS589`) — Department of Computer Science and Engineering, PES University
 - **Course Instructor**: Dr. Gokulakrishnan S, Department of Computer Science and Engineering, PES University

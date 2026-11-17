@@ -1,7 +1,7 @@
 CC      = gcc
 CFLAGS  = -Wall -Wextra -g -std=c99 -pthread -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 LDFLAGS = -pthread -lrt
-SRN    ?= PES2UG25CS617
+SRN    ?= PES2UG25CS586
 
 TARGET  = campuscompute
 SRCS    = main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c
