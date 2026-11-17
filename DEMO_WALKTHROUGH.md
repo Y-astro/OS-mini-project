@@ -7,7 +7,7 @@ One file to demo from and to explain every source file.
 ## 1. Setup (10 seconds)
 ```bash
 make clean && make          # builds ./campuscompute with -Wall -Wextra, no warnings
-export SRN=PES2UG25CS586    # banner/prompt shows this SRN (optional; has a default)
+export SRN=PES2UG25CS609    # banner/prompt shows this SRN (optional; has a default)
 ```
 
 ## 2. Demo script (about 5 minutes, in this order)

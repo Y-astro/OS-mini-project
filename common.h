@@ -8,8 +8,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#define DEFAULT_SRN "PES2UG25CS586"
-#define PARTNER_SRN "PES2UG25CS589"
+#define DEFAULT_SRN "PES2UG25CS609"
+#define PARTNER_SRN "PES2UG25CS617"
 #define MAX_JOBS 20
 #define MAX_ARRIVAL 1000
 #define MAX_BURST 100

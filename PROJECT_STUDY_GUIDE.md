@@ -5,7 +5,7 @@
 **Faculty In-Charge**: Dr. Gokulakrishnan S  
 **Institution**: PES University  
 **Project Title**: *CampusCompute – Intelligent Job Scheduling and Resource Management*  
-**Team**: Yatin R (`PES2UG25CS617`) & Thirukumaran (`PES2UG25CS586`)
+**Team**: Yaduveer Pavan (`PES2UG25CS609`) & Yatin R (`PES2UG25CS617`)
 
 ---
 
@@ -175,7 +175,7 @@ Because distinct processes have separate virtual memory spaces, Child Process ca
 
 #### How It Relates to Our Code (`ipc.c`)
 1. **Shared Memory Setup**:
-   - `shm_open("/cc_shm_PES2UG25CS617", O_CREAT | O_RDWR, 0600)` creates a shared memory file under `/dev/shm`.
+   - `shm_open("/cc_shm_PES2UG25CS609", O_CREAT | O_RDWR, 0600)` creates a shared memory file under `/dev/shm`.
    - `ftruncate(fd, sizeof(Packet))` sets its size.
    - `mmap(NULL, sizeof(Packet), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)` maps the buffer into virtual memory as a `Packet *pkt` pointer.
 2. **Synchronization Handshake**:
@@ -305,7 +305,7 @@ Production systems must reject malformed user input without crashing, and guaran
 - **Key Elements**:
   - `Job` struct: `id`, `arrival`, `burst`, `priority`, `status`.
   - `Metrics` struct: `completion`, `turnaround`, `waiting`.
-  - `get_srn()`: Returns `getenv("SRN")` if set, otherwise defaults to `"PES2UG25CS617"`.
+  - `get_srn()`: Returns `getenv("SRN")` if set, otherwise defaults to `"PES2UG25CS609"`.
   - `fork_flushed()`: Calls `fflush(stdout)` before `fork()`.
   - `child_exit()`: Calls `fflush(stdout)` before `_exit()`.
 
