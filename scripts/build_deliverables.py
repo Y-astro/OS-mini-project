@@ -201,6 +201,13 @@ def load_base64_images():
             raise FileNotFoundError(f"Missing required screenshot: {p}")
         with open(p, "rb") as f:
             b64_dict[num] = base64.b64encode(f.read()).decode("utf-8")
+    
+    logo_path = BASE_DIR / "assets" / "pes_logo.png"
+    if logo_path.exists():
+        with open(logo_path, "rb") as f:
+            b64_dict["LOGO"] = base64.b64encode(f.read()).decode("utf-8")
+    else:
+        b64_dict["LOGO"] = ""
     return b64_dict
 
 
@@ -371,70 +378,109 @@ def generate_report_html(srn, student_name, partner_srn, partner_name, b64_image
     line-height: 1.3;
   }
 
-  /* Cover page specific */
+  /* Page 3 Problem Statement specific (prevent cut off) */
+  .page-3-body {
+    height: 258mm;
+    overflow: hidden;
+    font-size: 10pt;
+    line-height: 1.3;
+  }
+
+  .page-3-body h1.section-heading {
+    margin-bottom: 2.5mm;
+  }
+
+  .page-3-body h2.sub-heading {
+    margin: 2mm 0 1mm 0;
+  }
+
+  .page-3-body p {
+    margin: 0 0 1.5mm 0;
+  }
+
+  .page-3-body ol {
+    margin: 1mm 0 1.5mm 0;
+    padding-left: 5mm;
+  }
+
+  .page-3-body li {
+    margin-bottom: 1mm;
+  }
+
+  /* Cover page specific with PES logo */
   .cover-container {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     height: 100%;
     text-align: center;
-    padding: 10mm 5mm 5mm 5mm;
+    padding: 4mm 5mm 5mm 5mm;
+  }
+
+  .cover-logo {
+    text-align: center;
+    margin-bottom: 5mm;
+  }
+
+  .cover-logo img {
+    width: 48mm;
+    height: auto;
   }
 
   .cover-top {
-    font-size: 14pt;
+    font-size: 13pt;
     font-weight: bold;
-    line-height: 1.5;
+    line-height: 1.4;
   }
 
   .cover-course {
-    font-size: 13pt;
+    font-size: 12.5pt;
     font-weight: bold;
-    line-height: 1.5;
-    margin-top: 8mm;
+    line-height: 1.4;
+    margin-top: 6mm;
   }
 
   .cover-middle {
-    margin-top: 12mm;
+    margin-top: 8mm;
   }
 
   .cover-report-on {
-    font-size: 12pt;
+    font-size: 11.5pt;
     font-weight: bold;
     line-height: 1.4;
   }
 
   .cover-project-title {
-    font-size: 15pt;
+    font-size: 14.5pt;
     font-weight: bold;
-    margin-top: 4mm;
+    margin-top: 3mm;
     letter-spacing: 0.5px;
   }
 
   .cover-submitted-by {
     font-size: 11pt;
     font-weight: bold;
-    margin-top: 12mm;
+    margin-top: 8mm;
   }
 
   .cover-table {
-    margin: 4mm auto 0 auto;
+    margin: 3mm auto 0 auto;
     width: 80%;
     border-collapse: collapse;
-    font-size: 11pt;
+    font-size: 10.5pt;
     font-weight: bold;
   }
 
   .cover-table th, .cover-table td {
-    padding: 4px 10px;
+    padding: 3px 10px;
     text-align: left;
   }
 
   .cover-bottom {
-    font-size: 10.5pt;
+    font-size: 10pt;
     font-weight: bold;
     line-height: 1.4;
-    margin-bottom: 8mm;
+    margin-bottom: 6mm;
   }
 </style>
 </head>
@@ -446,6 +492,9 @@ def generate_report_html(srn, student_name, partner_srn, partner_name, b64_image
 <div class="page-container">
   <div class="cover-container">
     <div>
+      <div class="cover-logo">
+        <img src="data:image/png;base64,__B64_LOGO__" alt="PES University Logo">
+      </div>
       <div class="cover-top">
         END SEMESTER ASSESSMENT (ESA)<br>
         B.TECH. (CSE)<br>
@@ -592,7 +641,7 @@ def generate_report_html(srn, student_name, partner_srn, partner_name, b64_image
 <!-- PAGE 3: PROBLEM STATEMENT                                                 -->
 <!-- ========================================================================= -->
 <div class="page-container">
-  <div class="page-body">
+  <div class="page-body page-3-body">
     <h1 class="section-heading">PROBLEM STATEMENT</h1>
 
     <h2 class="sub-heading">Aim</h2>
@@ -1897,6 +1946,7 @@ zip: clean
     html_content = html_content.replace("__PARTNER_NAME__", partner_name)
     html_content = html_content.replace("__PARTNER_SRN__", partner_srn)
     html_content = html_content.replace("__SRN__", srn)
+    html_content = html_content.replace("__B64_LOGO__", b64_images.get("LOGO", ""))
     for i in range(24):
         key = "{ITEMS[" + str(i) + "]['expl']}"
         html_content = html_content.replace(key, html.escape(ITEMS[i]["expl"]))
