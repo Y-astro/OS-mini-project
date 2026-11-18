@@ -4,3 +4,4 @@ campuscompute.log
 *.zip
 .~lock.*
 
+__pycache__/

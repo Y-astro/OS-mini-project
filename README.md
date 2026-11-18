@@ -1,10 +1,10 @@
 # CampusCompute — Intelligent Job Scheduling and Resource Management
 
 > **Quickstart Guides:**
-> - [VIVA_QUICKSTART.md](VIVA_QUICKSTART.md) — 2-page rapid viva cheat sheet, system calls, formulas, and live-coding commands.
-> - [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md) — 5-minute practical review walkthrough script for Dr. Gokulakrishnan S.
-> - [PROJECT_STUDY_GUIDE.md](PROJECT_STUDY_GUIDE.md) — Deep conceptual architecture and source code walkthrough.
-> - [VIVA_GUIDE.md](VIVA_GUIDE.md) — Top 25 Viva Voce technical questions and model answers.
+> - [docs/VIVA_QUICKSTART.md](docs/VIVA_QUICKSTART.md) — 2-page rapid viva cheat sheet, system calls, formulas, and live-coding commands.
+> - [docs/DEMO_WALKTHROUGH.md](docs/DEMO_WALKTHROUGH.md) — 5-minute practical review walkthrough script for Dr. Gokulakrishnan S.
+> - [docs/PROJECT_STUDY_GUIDE.md](docs/PROJECT_STUDY_GUIDE.md) — Deep conceptual architecture and source code walkthrough.
+> - [docs/VIVA_GUIDE.md](docs/VIVA_GUIDE.md) — Top 25 Viva Voce technical questions and model answers.
 
 [![Language](https://img.shields.io/badge/Language-C99-00599C?logo=c)](#)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%2F%20Ubuntu%20%2F%20WSL-E95420?logo=ubuntu)](https://ubuntu.com)
@@ -66,10 +66,11 @@ OS-mini-project/
 ├── tests/
 │   ├── test_campuscompute.py   # Unit test suite verifying core CLI behaviors
 │   └── rigorous_evaluation.py # 19-test automated test suite covering all FRs and live-coding
-├── DEMO_WALKTHROUGH.md      # 5-minute presentation script for faculty review
-├── VIVA_QUICKSTART.md       # Quick-reference viva cheat sheet (commands, formulas, APIs)
-├── VIVA_GUIDE.md            # Comprehensive Viva Voce preparation guide (Top 25 Q&As)
-├── PROJECT_STUDY_GUIDE.md   # Complete conceptual architecture and code walkthrough
+├── docs/                    # Comprehensive viva, demo, and conceptual guides
+│   ├── DEMO_WALKTHROUGH.md  # 5-minute presentation script for faculty review
+│   ├── VIVA_QUICKSTART.md   # Quick-reference viva cheat sheet (commands, formulas, APIs)
+│   ├── VIVA_GUIDE.md        # Comprehensive Viva Voce preparation guide (Top 25 Q&As)
+│   └── PROJECT_STUDY_GUIDE.md # Complete conceptual architecture and code walkthrough
 └── README.md                # Project documentation and official screenshot checklist
 ```
 

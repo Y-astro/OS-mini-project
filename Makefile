@@ -8,7 +8,7 @@ SRCS    = main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c
 OBJS    = $(SRCS:.c=.o)
 HEADERS = common.h scheduler.h logger.h ipc.h banker.h worker.h rlimit.h
 
-.PHONY: all run demo test clean zip help
+.PHONY: all run demo test clean zip deliverables help
 
 all: $(TARGET)
 
@@ -32,9 +32,12 @@ clean:
 
 zip: clean
 	rm -f $(SRN).zip
-	zip -r $(SRN).zip samples tests $(SRCS) $(HEADERS) Makefile README.md DEMO_WALKTHROUGH.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md VIVA_QUICKSTART.md
+	zip -r $(SRN).zip docs samples tests $(SRCS) $(HEADERS) Makefile README.md
 	@echo "Verifying archive integrity:"
 	unzip -t $(SRN).zip
+
+deliverables: $(TARGET)
+	python3 scripts/build_deliverables.py
 
 help:
 	@echo "make          build ./$(TARGET)"
@@ -42,5 +45,6 @@ help:
 	@echo "make demo     run the integrated demonstration"
 	@echo "make zip      package source and documentation into \$$SRN.zip"
 	@echo "make test     run independent regression tests (Python 3)"
+	@echo "make deliverables generate S01-S24 screenshots, submission PDF & ZIPs"
 	@echo "make clean    remove objects, binary, and log; preserve ZIPs"
 	@echo "IPC objects are removed by the program itself (./$(TARGET) --cleanup)"
