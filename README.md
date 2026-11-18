@@ -2,7 +2,6 @@
 
 > **Quickstart Guides:**
 > - [VIVA_QUICKSTART.md](VIVA_QUICKSTART.md) — 2-page rapid viva cheat sheet, system calls, formulas, and live-coding commands.
-> - [CODE_MODIFICATION_GUIDE.md](CODE_MODIFICATION_GUIDE.md) — Live code modification cheat sheet (exact lines to edit on the spot for faculty review).
 > - [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md) — 5-minute practical review walkthrough script for Dr. Gokulakrishnan S.
 > - [PROJECT_STUDY_GUIDE.md](PROJECT_STUDY_GUIDE.md) — Deep conceptual architecture and source code walkthrough.
 > - [VIVA_GUIDE.md](VIVA_GUIDE.md) — Top 25 Viva Voce technical questions and model answers.
@@ -68,7 +67,6 @@ OS-mini-project/
 │   ├── test_campuscompute.py   # Unit test suite verifying core CLI behaviors
 │   └── rigorous_evaluation.py # 19-test automated test suite covering all FRs and live-coding
 ├── DEMO_WALKTHROUGH.md      # 5-minute presentation script for faculty review
-├── CODE_MODIFICATION_GUIDE.md # Live code modification guide (exact lines to edit on the spot)
 ├── VIVA_QUICKSTART.md       # Quick-reference viva cheat sheet (commands, formulas, APIs)
 ├── VIVA_GUIDE.md            # Comprehensive Viva Voce preparation guide (Top 25 Q&As)
 ├── PROJECT_STUDY_GUIDE.md   # Complete conceptual architecture and code walkthrough
@@ -338,7 +336,7 @@ make zip
 Output:
 ```
 rm -f PES2UG25CS609.zip
-zip -r PES2UG25CS609.zip samples tests main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c common.h scheduler.h logger.h ipc.h banker.h worker.h rlimit.h Makefile README.md DEMO_WALKTHROUGH.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md VIVA_QUICKSTART.md CODE_MODIFICATION_GUIDE.md
+zip -r PES2UG25CS609.zip samples tests main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c common.h scheduler.h logger.h ipc.h banker.h worker.h rlimit.h Makefile README.md DEMO_WALKTHROUGH.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md VIVA_QUICKSTART.md
 Verifying archive integrity:
 unzip -t PES2UG25CS609.zip
 No errors detected in compressed data of PES2UG25CS609.zip.

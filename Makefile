@@ -32,7 +32,7 @@ clean:
 
 zip: clean
 	rm -f $(SRN).zip
-	zip -r $(SRN).zip samples tests $(SRCS) $(HEADERS) Makefile README.md DEMO_WALKTHROUGH.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md VIVA_QUICKSTART.md CODE_MODIFICATION_GUIDE.md
+	zip -r $(SRN).zip samples tests $(SRCS) $(HEADERS) Makefile README.md DEMO_WALKTHROUGH.md VIVA_GUIDE.md PROJECT_STUDY_GUIDE.md VIVA_QUICKSTART.md
 	@echo "Verifying archive integrity:"
 	unzip -t $(SRN).zip
 
