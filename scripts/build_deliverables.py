@@ -191,7 +191,7 @@ ITEMS = [
     {
         "num": "S24",
         "title": "Submission ZIP archive structure and integrity check",
-        "cmd": "unzip -l $SRN.zip; unzip -t $SRN.zip",
+        "cmd": "unzip -l SRN1_SRN2.zip; unzip -t SRN1_SRN2.zip",
         "page": 17,
         "expl": "S24 – Submission ZIP: Shows the archive contents and a successful archive integrity check."
     }
@@ -1009,8 +1009,10 @@ def main():
     pdf_609 = BASE_DIR / "PES2UG25CS609.pdf"
     compile_pdf(html_609, pdf_609)
 
-    # 4. Generate verified submission ZIPs
-    print("[*] Packaging and verifying submission ZIP archives...")
+    # 4. Generate verified submission ZIPs (dual-SRN convention SRN1_SRN2.zip & single-SRN)
+    print("[*] Packaging and verifying submission ZIP archives according to convention: SRNNumber1_SRNNumber2.zip...")
+    subprocess.run(["make", "zip", "ZIP=PES2UG25CS617_PES2UG25CS609.zip"], cwd=BASE_DIR, check=True)
+    subprocess.run(["make", "zip", "ZIP=PES2UG25CS609_PES2UG25CS617.zip"], cwd=BASE_DIR, check=True)
     subprocess.run(["make", "zip", "SRN=PES2UG25CS617"], cwd=BASE_DIR, check=True)
     subprocess.run(["make", "zip", "SRN=PES2UG25CS609"], cwd=BASE_DIR, check=True)
 
@@ -1022,8 +1024,10 @@ def main():
     print("=" * 72)
     print(f"1. Primary Submission PDF (Yatin R):        {pdf_617} ({pdf_617.stat().st_size // 1024} KB)")
     print(f"2. Primary Submission PDF (Yaduveer Pavan): {pdf_609} ({pdf_609.stat().st_size // 1024} KB)")
-    print(f"3. Submission ZIP (Yatin R):                {BASE_DIR / 'PES2UG25CS617.zip'}")
-    print(f"4. Submission ZIP (Yaduveer Pavan):         {BASE_DIR / 'PES2UG25CS609.zip'}")
+    print(f"3. Dual-SRN ZIP (Yatin_Yaduveer):          {BASE_DIR / 'PES2UG25CS617_PES2UG25CS609.zip'}")
+    print(f"4. Dual-SRN ZIP (Yaduveer_Yatin):          {BASE_DIR / 'PES2UG25CS609_PES2UG25CS617.zip'}")
+    print(f"5. Single-SRN ZIP (Yatin R):                {BASE_DIR / 'PES2UG25CS617.zip'}")
+    print(f"6. Single-SRN ZIP (Yaduveer Pavan):         {BASE_DIR / 'PES2UG25CS609.zip'}")
     print("=" * 72)
 
 

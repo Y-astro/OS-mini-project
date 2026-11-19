@@ -1,7 +1,9 @@
 CC      = gcc
 CFLAGS  = -Wall -Wextra -g -std=c99 -pthread -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 LDFLAGS = -pthread -lrt
-SRN    ?= PES2UG25CS609
+SRN1   ?= PES2UG25CS617
+SRN2   ?= PES2UG25CS609
+ZIP    ?= $(if $(SRN),$(SRN).zip,$(SRN1)_$(SRN2).zip)
 
 TARGET  = campuscompute
 SRCS    = main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c
@@ -31,10 +33,10 @@ clean:
 	rm -f $(OBJS) $(TARGET) campuscompute.log
 
 zip: clean
-	rm -f $(SRN).zip
-	zip -r $(SRN).zip docs samples tests $(SRCS) $(HEADERS) Makefile README.md
+	rm -f $(ZIP)
+	zip -r $(ZIP) docs samples tests $(SRCS) $(HEADERS) Makefile README.md
 	@echo "Verifying archive integrity:"
-	unzip -t $(SRN).zip
+	unzip -t $(ZIP)
 
 deliverables: $(TARGET)
 	python3 scripts/build_deliverables.py
