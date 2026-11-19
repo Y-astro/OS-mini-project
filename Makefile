@@ -34,7 +34,7 @@ clean:
 
 zip: clean
 	rm -f $(ZIP)
-	zip -r $(ZIP) samples tests $(SRCS) $(HEADERS) Makefile README.md
+	zip -r $(ZIP) samples tests $(SRCS) $(HEADERS) Makefile
 	@echo "Verifying archive integrity:"
 	unzip -t $(ZIP)
 
