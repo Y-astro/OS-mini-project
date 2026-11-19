@@ -1,13 +1,13 @@
 #include "scheduler.h"
 #include "logger.h"
-#include <time.h>
 #include <ctype.h>
+#include <time.h>
 
 #define MAX_SLICES 2048
 
 typedef struct {
   int job_id, start, end;
-} Slice; /* job_id 0 = CPU idle */
+} Slice;
 typedef struct {
   Slice s[MAX_SLICES];
   int count;
@@ -27,7 +27,6 @@ bool scheduler_get_trace(void) { return trace_enabled; }
 void scheduler_set_logging(bool enabled) { logging_enabled = enabled; }
 bool scheduler_get_logging(void) { return logging_enabled; }
 
-/* Report actual transitions, not a prewritten transcript. */
 static void event(const char *action, int id, int now) {
   char msg[LOG_MSG_LEN];
   if (id)
@@ -58,8 +57,6 @@ int scheduler_input_quantum(void) {
   return 0;
 }
 
-/* ---------- workload ---------- */
-
 void scheduler_load_default_jobs(Job jobs[], int *n) {
   static const int data[5][4] = {
       {1, 0, 5, 2}, {2, 1, 3, 1}, {3, 2, 8, 4}, {4, 3, 6, 2}, {5, 4, 4, 2}};
@@ -69,9 +66,6 @@ void scheduler_load_default_jobs(Job jobs[], int *n) {
   *n = 5;
 }
 
-/* Loads jobs from a text file: one job per line "arrival burst priority".
- * Blank lines and '#' comments are ignored. Replaces the current workload
- * only if the whole file is valid. */
 int scheduler_load_file(Job jobs[], int *n, const char *path) {
   FILE *f = fopen(path, "r");
   if (!f) {
@@ -100,8 +94,7 @@ int scheduler_load_file(Job jobs[], int *n, const char *path) {
     char *third = strtok_r(NULL, " \t\r\n", &save);
     if (!second || !third || strtok_r(NULL, " \t\r\n", &save) ||
         !parse_int(first, 0, MAX_ARRIVAL, &a) ||
-        !parse_int(second, 1, MAX_BURST, &b) ||
-        !parse_int(third, 1, 99, &p)) {
+        !parse_int(second, 1, MAX_BURST, &b) || !parse_int(third, 1, 99, &p)) {
       printf("[Error] %s:%d: expected \"arrival(0-%d) burst(1-%d) "
              "priority(1-99)\"\n",
              path, lineno, MAX_ARRIVAL, MAX_BURST);
@@ -132,7 +125,6 @@ int scheduler_load_file(Job jobs[], int *n, const char *path) {
   return 0;
 }
 
-/* Generates n random jobs. seed 0 = time-based, so every run differs. */
 int scheduler_generate_random(Job jobs[], int *n, int count, unsigned seed) {
   if (count < 1 || count > MAX_JOBS) {
     printf("[Error] Job count must be 1-%d\n", MAX_JOBS);
@@ -142,11 +134,11 @@ int scheduler_generate_random(Job jobs[], int *n, int count, unsigned seed) {
     seed = (unsigned)time(NULL) ^ (unsigned)getpid();
   srand(seed);
   for (int i = 0; i < count; i++)
-    jobs[i] = (Job){i + 1, rand() % 10, 1 + rand() % 12, 1 + rand() % 5,
-                    "READY"};
+    jobs[i] =
+        (Job){i + 1, rand() % 10, 1 + rand() % 12, 1 + rand() % 5, "READY"};
   *n = count;
-  printf("Generated %d random jobs (seed %u - reuse it to reproduce).\n",
-         count, seed);
+  printf("Generated %d random jobs (seed %u - reuse it to reproduce).\n", count,
+         seed);
   return 0;
 }
 
@@ -252,10 +244,8 @@ void scheduler_display_jobs(const Job jobs[], int n) {
   }
 }
 
-/* ---------- simulation ---------- */
-
 static void add_slice(Timeline *t, int id, int start, int end) {
-  /* With 20 jobs, burst <=100, q>=1 and <=20 idle gaps, max 2020 slices. */
+
   t->s[t->count++] = (Slice){id, start, end};
 }
 
@@ -265,13 +255,14 @@ static void finish(Job *j, Metrics *m, int now) {
   m->turnaround = now - j->arrival;
   m->waiting = m->turnaround - j->burst;
   char buf[LOG_MSG_LEN];
-  snprintf(buf, sizeof(buf), "[Scheduler] Job %d completed (CT=%d, TAT=%d, WT=%d)",
-           j->id, m->completion, m->turnaround, m->waiting);
-  if (trace_enabled) puts(buf);
+  snprintf(buf, sizeof(buf),
+           "[Scheduler] Job %d completed (CT=%d, TAT=%d, WT=%d)", j->id,
+           m->completion, m->turnaround, m->waiting);
+  if (trace_enabled)
+    puts(buf);
   logger_log(buf);
 }
 
-/* Earliest arrival among jobs whose skip[] flag is false. */
 static int earliest_arrival(const Job jobs[], const bool skip[], int n) {
   int best = -1;
   for (int i = 0; i < n; i++) {
@@ -281,8 +272,6 @@ static int earliest_arrival(const Job jobs[], const bool skip[], int n) {
   return best;
 }
 
-/* Tie-break: priority (Priority policy only), then earlier arrival, then lower
- * job ID. */
 static bool better(const Job *a, const Job *b, Policy p) {
   if (p == PRIORITY && a->priority != b->priority)
     return a->priority < b->priority;
@@ -302,35 +291,29 @@ static int pick(const Job jobs[], const bool done[], int n, int now, Policy p) {
   return best;
 }
 
-/* Simulates non-preemptive policies (FCFS and Priority) */
 static void simulate_nonpreemptive(Job jobs[], int n, Policy p, Metrics m[],
                                    Timeline *t) {
   bool done[MAX_JOBS] = {false};
   int now = 0;
 
   for (int finished = 0; finished < n; finished++) {
-    /* Step 1: Pick the highest priority/earliest arrival job that has already
-     * arrived */
+
     int next = pick(jobs, done, n, now, p);
 
-    /* Step 2: If CPU is idle (no job arrived yet), advance time to earliest
-     * arrival */
     if (next < 0) {
       int wake = earliest_arrival(jobs, done, n);
       event("IDLE", 0, now);
-      add_slice(t, 0, now, wake); /* IDLE slice */
+      add_slice(t, 0, now, wake);
       now = wake;
       next = pick(jobs, done, n, now, p);
     }
 
-    /* Step 3: Run the job non-preemptively until completion */
     strcpy(jobs[next].status, "RUNNING");
     event("READY -> RUNNING", jobs[next].id, now);
     add_slice(t, jobs[next].id, now, now + jobs[next].burst);
     now += jobs[next].burst;
     done[next] = true;
 
-    /* Step 4: Record Completion Time, TAT, and Waiting Time */
     finish(&jobs[next], &m[next], now);
   }
 }
@@ -346,8 +329,6 @@ static int queue_pop(Queue *q) {
   return v;
 }
 
-/* Admits newly arrived jobs into the ready queue ordered by arrival time, then
- * Job ID */
 static void admit_arrivals(const Job jobs[], int n, int now, bool admitted[],
                            Queue *q) {
   while (1) {
@@ -366,17 +347,14 @@ static void admit_arrivals(const Job jobs[], int n, int now, bool admitted[],
     admitted[best] = true;
     queue_push(q, best);
     if (trace_enabled)
-      printf("  J%d admitted (arrival=%d, boundary=%d)\n", jobs[best].id, jobs[best].arrival, now);
+      printf("  J%d admitted (arrival=%d, boundary=%d)\n", jobs[best].id,
+             jobs[best].arrival, now);
   }
 }
 
-/*
- * Round Robin Scheduling:
- * Preemptive scheduling with a fixed time quantum.
- * Rule: New arrivals join the queue before a preempted job is re-queued.
- */
 static void print_ready(const Job jobs[], const Queue *q, int now) {
-  if (!trace_enabled) return;
+  if (!trace_enabled)
+    return;
   printf("  t=%d ready queue: [", now);
   for (int i = q->head; i != q->tail; i = (i + 1) % 128)
     printf("%sJ%d", i == q->head ? "" : ", ", jobs[q->items[i]].id);
@@ -393,26 +371,23 @@ static void simulate_rr(Job jobs[], int n, Metrics m[], Timeline *t) {
     remaining[i] = jobs[i].burst;
 
   while (finished < n) {
-    /* Step 1: Admit all jobs that have arrived by current time 'now' */
+
     admit_arrivals(jobs, n, now, admitted, &q);
 
-    /* Step 2: If queue is empty, jump CPU to next job's arrival time */
     if (q.head == q.tail) {
       int wake = earliest_arrival(jobs, admitted, n);
       if (wake < 0)
         break;
       event("IDLE", 0, now);
-      add_slice(t, 0, now, wake); /* IDLE slice */
+      add_slice(t, 0, now, wake);
       now = wake;
       continue;
     }
 
-    /* Step 3: Pop next job from head of ready queue */
     int cur = queue_pop(&q);
     int run =
         remaining[cur] < current_quantum ? remaining[cur] : current_quantum;
 
-    /* Step 4: Execute job for up to current_quantum time units */
     strcpy(jobs[cur].status, "RUNNING");
     event("READY -> RUNNING", jobs[cur].id, now);
     print_ready(jobs, &q, now);
@@ -420,11 +395,8 @@ static void simulate_rr(Job jobs[], int n, Metrics m[], Timeline *t) {
     now += run;
     remaining[cur] -= run;
 
-    /* Step 5: Admit any newly arrived jobs during this time slice */
     admit_arrivals(jobs, n, now, admitted, &q);
 
-    /* Step 6: If job still needs CPU, re-queue at tail; otherwise mark complete
-     */
     if (remaining[cur] > 0) {
       strcpy(jobs[cur].status, "READY");
       event("RUNNING -> READY (quantum expired)", jobs[cur].id, now);
@@ -457,8 +429,6 @@ static void averages(const Metrics m[], int n, double *tat, double *wt) {
   *wt = (double)total_wt / n;
 }
 
-/* ---------- reporting ---------- */
-
 static double response_average(const Job jobs[], int n, const Timeline *t) {
   int sum = 0;
   for (int j = 0; j < n; j++)
@@ -478,29 +448,36 @@ static void print_extra_metrics(const Job jobs[], int n, const Timeline *t) {
     if (s.job_id) {
       busy += s.end - s.start;
       slices++;
-      if (prev && prev != s.job_id) switches++;
+      if (prev && prev != s.job_id)
+        switches++;
     }
     prev = s.job_id;
   }
   printf("Average response time:    %.2f\n", response_average(jobs, n, t));
-  printf("CPU utilization: %.2f%% | throughput: %.3f jobs/unit | makespan: %d\n",
-         100.0 * busy / makespan, (double)n / makespan, makespan);
-  printf("Execution slices: %d | Direct job-to-job switches: %d\n", slices, switches);
+  printf(
+      "CPU utilization: %.2f%% | throughput: %.3f jobs/unit | makespan: %d\n",
+      100.0 * busy / makespan, (double)n / makespan, makespan);
+  printf("Execution slices: %d | Direct job-to-job switches: %d\n", slices,
+         switches);
 }
 
 static void print_timeline(const Timeline *t) {
   bool color = isatty(STDOUT_FILENO) && !getenv("NO_COLOR");
-  static const char *palette[] = {"\033[36m", "\033[33m", "\033[35m", "\033[32m", "\033[34m"};
+  static const char *palette[] = {"\033[36m", "\033[33m", "\033[35m",
+                                  "\033[32m", "\033[34m"};
   printf("\nExecution order:\n");
   for (int i = 0; i < t->count; i++) {
     if (color)
-      printf("%s", t->s[i].job_id ? palette[(t->s[i].job_id - 1) % 5] : "\033[90m");
+      printf("%s",
+             t->s[i].job_id ? palette[(t->s[i].job_id - 1) % 5] : "\033[90m");
     if (t->s[i].job_id == 0)
       printf("[IDLE %d-%d] ", t->s[i].start, t->s[i].end);
     else
       printf("[J%d %d-%d] ", t->s[i].job_id, t->s[i].start, t->s[i].end);
-    if (color) printf("\033[0m");
-    if ((i + 1) % 8 == 0) putchar('\n');
+    if (color)
+      printf("\033[0m");
+    if ((i + 1) % 8 == 0)
+      putchar('\n');
   }
   printf("\n");
 }
@@ -570,20 +547,23 @@ int scheduler_compare_all(const Job jobs[], int n) {
   }
   printf("\n=== Policy comparison (same job set, RR quantum = %d) ===\n",
          current_quantum);
-  printf("| Policy                    | Avg turnaround | Avg waiting | Avg response |\n");
+  printf("| Policy                    | Avg turnaround | Avg waiting | Avg "
+         "response |\n");
   for (int p = 0; p < 3; p++) {
     memcpy(copy, jobs, n * sizeof(Job));
     simulate(copy, n, (Policy)p, m, &t);
     averages(m, n, &tat[p], &wt[p]);
     response[p] = response_average(copy, n, &t);
-    printf("| %-25s | %-14.2f | %-11.2f | %-12.2f |\n",
-           policy_names[p], tat[p], wt[p], response[p]);
-    if (response[p] < response[best_response]) best_response = p;
+    printf("| %-25s | %-14.2f | %-11.2f | %-12.2f |\n", policy_names[p], tat[p],
+           wt[p], response[p]);
+    if (response[p] < response[best_response])
+      best_response = p;
     if (wt[p] < wt[best])
       best = p;
   }
   printf("Lowest average waiting time: %s\n", policy_names[best]);
   printf("Lowest average response time: %s\n", policy_names[best_response]);
-  puts("Recommendations apply to this workload; ties use displayed policy order.");
+  puts("Recommendations apply to this workload; ties use displayed policy "
+       "order.");
   return 0;
 }

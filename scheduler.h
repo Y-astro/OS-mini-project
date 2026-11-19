@@ -19,7 +19,6 @@ void scheduler_set_logging(bool enabled);
 bool scheduler_get_logging(void);
 int scheduler_input_quantum(void);
 
-/* Each returns 0 on success, 1 if there are no jobs to schedule. */
 int scheduler_run_fcfs(Job jobs[], int n);
 int scheduler_run_rr(Job jobs[], int n);
 int scheduler_run_priority(Job jobs[], int n);

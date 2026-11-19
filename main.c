@@ -5,15 +5,14 @@
 #include "rlimit.h"
 #include "scheduler.h"
 #include "worker.h"
-#include <sys/wait.h>
-#include <limits.h>
 #include <ctype.h>
+#include <limits.h>
+#include <sys/wait.h>
 
 static Job jobs[MAX_JOBS];
 static int num_jobs;
-static const char *cli_arg; /* argument following a flag, e.g. --jobs FILE */
+static const char *cli_arg;
 
-/* Uses the CLI argument if given, otherwise prompts for it. */
 static const char *get_arg(const char *prompt, char *buf, size_t n) {
   if (cli_arg)
     return cli_arg;
@@ -25,10 +24,10 @@ static const char *get_arg(const char *prompt, char *buf, size_t n) {
 }
 
 typedef struct {
-  const char *flag; /* command-line form: ./campuscompute --<flag> */
+  const char *flag;
   const char *label;
-  int (*run)(void); /* 0 = success */
-  bool in_demo;     /* included in the integrated demonstration */
+  int (*run)(void);
+  bool in_demo;
 } Command;
 
 static int cmd_input(void) { return scheduler_input_jobs(jobs, &num_jobs); }
@@ -49,7 +48,8 @@ static int cmd_random(void) {
     return 1;
   int count;
   if (!parse_int(p, 1, MAX_JOBS, &count)) {
-    fprintf(stderr, "[Error] Job count must be an integer between 1 and %d\n", MAX_JOBS);
+    fprintf(stderr, "[Error] Job count must be an integer between 1 and %d\n",
+            MAX_JOBS);
     return 1;
   }
   unsigned seed = 0;
@@ -58,7 +58,8 @@ static int cmd_random(void) {
     char *end;
     errno = 0;
     unsigned long value = strtoul(seed_text, &end, 10);
-    if (!isdigit((unsigned char)seed_text[0]) || *end || errno || value > UINT_MAX || value == 0) {
+    if (!isdigit((unsigned char)seed_text[0]) || *end || errno ||
+        value > UINT_MAX || value == 0) {
       fprintf(stderr, "[Error] SEED must be a positive unsigned integer\n");
       return 1;
     }
@@ -94,7 +95,8 @@ static int cmd_trace(void) {
 }
 static int cmd_log_schedule(void) {
   scheduler_set_logging(!scheduler_get_logging());
-  printf("Scheduling event logger: %s\n", scheduler_get_logging() ? "ON" : "OFF");
+  printf("Scheduling event logger: %s\n",
+         scheduler_get_logging() ? "ON" : "OFF");
   return 0;
 }
 static int cmd_dashboard(void) {
@@ -104,7 +106,8 @@ static int cmd_dashboard(void) {
     completed += strcmp(jobs[i].status, "COMPLETED") == 0;
   }
   printf("\n=== CampusCompute | Workload Dashboard ===\n");
-  printf("Jobs: %d/%d  |  Last simulated state: %d completed  |  Total CPU demand: %d\n",
+  printf("Jobs: %d/%d  |  Last simulated state: %d completed  |  Total CPU "
+         "demand: %d\n",
          num_jobs, MAX_JOBS, completed, total);
   printf("RR quantum: %d  |  Trace: %s  |  Scheduler logging: %s\n",
          scheduler_get_quantum(), scheduler_get_trace() ? "ON" : "OFF",
@@ -142,8 +145,8 @@ static const Command commands[] = {
     {"banker-safe", "Banker's algorithm: safe state", banker_demo_safe, true},
     {"banker-unsafe", "Banker's algorithm: unsafe state", banker_demo_unsafe,
      true},
-    {"banker-file", "Banker's algorithm: load state from file",
-     cmd_banker_file, false},
+    {"banker-file", "Banker's algorithm: load state from file", cmd_banker_file,
+     false},
     {"banker-input", "Banker's algorithm: enter your own state",
      banker_input_and_check, false},
     {"worker-ok", "Worker process: normal completion", worker_demo_normal,
@@ -156,8 +159,10 @@ static const Command commands[] = {
     {"demo", "Integrated demonstration", cmd_demo, false},
     {"cleanup", "Verify cleanup of threads/IPC/processes", cmd_cleanup, false},
     {"trace", "Toggle step-by-step scheduling trace", cmd_trace, false},
-    {"log-schedule", "Toggle actual scheduling event logger", cmd_log_schedule, false},
-    {"dashboard", "Workload dashboard and policy comparison", cmd_dashboard, false},
+    {"log-schedule", "Toggle actual scheduling event logger", cmd_log_schedule,
+     false},
+    {"dashboard", "Workload dashboard and policy comparison", cmd_dashboard,
+     false},
 };
 #define NUM_COMMANDS ((int)(sizeof(commands) / sizeof(commands[0])))
 
@@ -176,11 +181,14 @@ static int cmd_cleanup(void) {
   int left = ipc_objects_remaining();
 
   printf("\n=== Cleanup verification ===\n");
-  printf("Logger: %s\n", log_result >= 0 ? "inactive (previous consumer joined)" : "shutdown/write error");
+  printf("Logger: %s\n", log_result >= 0 ? "inactive (previous consumer joined)"
+                                         : "shutdown/write error");
   printf("Child processes: %d stray reaped, none remaining: %s\n", reaped,
          no_children ? "yes" : "NO");
   printf("IPC objects (shared memory + semaphores) remaining: %d\n", left);
-  return (no_children && left == 0 && log_result >= 0 && cleanup_result == 0) ? 0 : 1;
+  return (no_children && left == 0 && log_result >= 0 && cleanup_result == 0)
+             ? 0
+             : 1;
 }
 
 static int cmd_demo(void) {
@@ -220,7 +228,8 @@ static void print_menu(void) {
     printf("  %2d  %-42s --%s\n", i + 1, commands[i].label, commands[i].flag);
   }
   printf("   0  Clean up and exit\n   ?  Show this menu\n");
-  printf("Chain commands in a single invocation, e.g. --trace --jobs FILE --rr 3\n");
+  printf("Chain commands in a single invocation, e.g. --trace --jobs FILE --rr "
+         "3\n");
 }
 
 static int run_interactive(void) {
@@ -234,7 +243,8 @@ static int run_interactive(void) {
       break;
     if (!strchr(line, '\n') && !feof(stdin)) {
       int c;
-      while ((c = getchar()) != '\n' && c != EOF) {}
+      while ((c = getchar()) != '\n' && c != EOF) {
+      }
       printf("[Error] Command too long.\n");
       continue;
     }
@@ -267,13 +277,13 @@ int main(int argc, char *argv[]) {
   scheduler_load_default_jobs(jobs, &num_jobs);
   if (argc == 1)
     return run_interactive();
-  if (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+  if (argc == 2 &&
+      (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
     print_banner();
     print_menu();
     return 0;
   }
 
-  /* One process owns the workload and settings for the entire command chain. */
   for (int i = 1; i < argc; i++) {
     const char *arg = argv[i];
     if (strncmp(arg, "--", 2) != 0) {
@@ -292,8 +302,7 @@ int main(int argc, char *argv[]) {
       return 1;
     }
 
-    bool takes_arg = strcmp(name, "jobs") == 0 ||
-                     strcmp(name, "random") == 0 ||
+    bool takes_arg = strcmp(name, "jobs") == 0 || strcmp(name, "random") == 0 ||
                      strcmp(name, "banker-file") == 0;
     bool quantum = strcmp(name, "rr") == 0 || strcmp(name, "set-quantum") == 0;
     cli_arg = NULL;

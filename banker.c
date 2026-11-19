@@ -46,25 +46,16 @@ static void print_state(const State *s, Matrix need) {
   printf("\n\n");
 }
 
-/*
- * Banker's Safety Algorithm:
- * Checks whether the current resource allocation state is SAFE.
- * A state is safe if there exists a Safe Sequence <P0, P1, ... Pn-1>
- * where each process can finish by obtaining its maximum claim.
- */
 static bool is_safe(const State *s, Matrix need, int seq[]) {
   int work[MAX_RESOURCES];
   bool finished[MAX_PROCESSES] = {false};
   int count = 0;
 
-  /* Step 1: Initialize Work = Available vector */
   memcpy(work, s->avail, sizeof(work));
 
-  /* Step 2: Repeat until all processes finish or no progress can be made */
   while (count < s->p) {
     bool progress = false;
 
-    /* Find an unfinished process whose Need can be satisfied by current Work */
     for (int i = 0; i < s->p; i++) {
       if (finished[i])
         continue;
@@ -77,8 +68,6 @@ static bool is_safe(const State *s, Matrix need, int seq[]) {
       if (!fits)
         continue;
 
-      /* Step 3: Process finishes, reclaims its allocated resources back to Work
-       */
       for (int j = 0; j < s->r; j++)
         work[j] += s->alloc[i][j];
       printf("  P%d can finish (Need <= Work); Work becomes [ ", i);
@@ -91,13 +80,10 @@ static bool is_safe(const State *s, Matrix need, int seq[]) {
       progress = true;
     }
 
-    /* If no process could proceed in this pass, system cannot make progress */
     if (!progress)
       break;
   }
 
-  /* Step 4: If not all processes finished, report unfinished processes (unsafe, not necessarily deadlocked)
-   */
   if (count < s->p) {
     printf("  No remaining process has Need <= Work. Blocked: ");
     for (int i = 0; i < s->p; i++) {
@@ -107,7 +93,6 @@ static bool is_safe(const State *s, Matrix need, int seq[]) {
     printf("\n");
   }
 
-  /* Safe if and only if all processes finished */
   return count == s->p;
 }
 
@@ -115,18 +100,15 @@ static bool analyse(const State *s) {
   Matrix need;
   int seq[MAX_PROCESSES];
 
-  /* Step 1: Calculate Need Matrix = Maximum - Allocation */
   for (int i = 0; i < s->p; i++) {
     for (int j = 0; j < s->r; j++)
       need[i][j] = s->max[i][j] - s->alloc[i][j];
   }
   print_state(s, need);
 
-  /* Step 2: Execute Safety Algorithm */
   printf("Safety check:\n");
   bool safe = is_safe(s, need, seq);
 
-  /* Step 3: Display Result and Safe Sequence (if safe) */
   if (safe) {
     printf("\nRESULT: SAFE state. Safe sequence: <");
     for (int i = 0; i < s->p; i++)
@@ -184,30 +166,31 @@ int banker_input_and_check(void) {
   return 0;
 }
 
-/* Strict bounded token reader: 1 = value, 0 = EOF, -1 = malformed. */
 static int next_int(FILE *f, int *out) {
   int c;
   do {
     c = fgetc(f);
     if (c == '#') {
-      while ((c = fgetc(f)) != EOF && c != '\n') {}
+      while ((c = fgetc(f)) != EOF && c != '\n') {
+      }
     }
   } while (c != EOF && isspace((unsigned char)c));
-  if (c == EOF) return ferror(f) ? -1 : 0;
+  if (c == EOF)
+    return ferror(f) ? -1 : 0;
   char token[64];
   size_t n = 0;
   while (c != EOF && !isspace((unsigned char)c) && c != '#') {
-    if (n + 1 >= sizeof(token)) return -1;
+    if (n + 1 >= sizeof(token))
+      return -1;
     token[n++] = (char)c;
     c = fgetc(f);
   }
-  if (c == '#') ungetc(c, f);
+  if (c == '#')
+    ungetc(c, f);
   token[n] = '\0';
   return parse_int(token, 0, 100, out) ? 1 : -1;
 }
 
-/* File format: P R, then P rows of Allocation, P rows of Max, then Available.
- */
 int banker_from_file(const char *path) {
   FILE *f = fopen(path, "r");
   if (!f) {
@@ -227,7 +210,8 @@ int banker_from_file(const char *path) {
   for (int j = 0; ok && j < s.r; j++)
     ok = next_int(f, &s.avail[j]) == 1 && s.avail[j] >= 0;
   int extra;
-  if (ok) ok = next_int(f, &extra) == 0;
+  if (ok)
+    ok = next_int(f, &extra) == 0;
   fclose(f);
   if (!ok) {
     printf("[Error] %s: malformed state (need P R, Alloc, Max, Available; "

@@ -3,9 +3,9 @@
 
 int logger_init(void);
 void logger_log(const char *message);
-int logger_shutdown(void);     /* returns events written, -1 on error, 0 if inactive */
-int logger_demo(void);         /* default repeatable benchmark (3 producers x 5 events) */
-int logger_custom_run(void);   /* interactive: enter producer threads and event counts */
-int logger_submit_event(void); /* interactive: enter custom message to log */
+int logger_shutdown(void);
+int logger_demo(void);
+int logger_custom_run(void);
+int logger_submit_event(void);
 
 #endif

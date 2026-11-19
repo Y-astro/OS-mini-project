@@ -25,7 +25,8 @@ bool read_int(const char *prompt, int lo, int hi, int *out) {
     bool complete = strchr(buf, '\n') != NULL || feof(stdin);
     if (!complete) {
       int c;
-      while ((c = getchar()) != '\n' && c != EOF) {}
+      while ((c = getchar()) != '\n' && c != EOF) {
+      }
     }
     if (complete && parse_int(buf, lo, hi, out))
       return true;

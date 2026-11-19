@@ -21,49 +21,38 @@ static bool active;
 static int written;
 static bool write_failed;
 
-/* Producer pushes an event into the bounded buffer */
 static void push(const LogEvent *ev) {
-  /* Step 1: Acquire mutex lock before touching shared queue */
+
   pthread_mutex_lock(&lock);
 
-  /* Step 2: If queue is full, wait on not_full (releases mutex while sleeping)
-   */
   while (count == LOG_QUEUE_SIZE) {
     printf("  [Producer] queue full (%d/%d), waiting for consumer\n", count,
            LOG_QUEUE_SIZE);
     pthread_cond_wait(&not_full, &lock);
   }
 
-  /* Step 3: Insert item into circular buffer and increment count */
   queue[tail] = *ev;
   tail = (tail + 1) % LOG_QUEUE_SIZE;
   count++;
 
-  /* Step 4: Signal consumer that queue is not empty */
   pthread_cond_signal(&not_empty);
 
-  /* Step 5: Release mutex lock */
   pthread_mutex_unlock(&lock);
 }
 
-/* Consumer pops an event from the bounded buffer */
 static LogEvent pop(void) {
-  /* Step 1: Acquire mutex lock */
+
   pthread_mutex_lock(&lock);
 
-  /* Step 2: If queue is empty, wait on not_empty */
   while (count == 0)
     pthread_cond_wait(&not_empty, &lock);
 
-  /* Step 3: Remove item from circular buffer and decrement count */
   LogEvent ev = queue[head];
   head = (head + 1) % LOG_QUEUE_SIZE;
   count--;
 
-  /* Step 4: Signal waiting producers that space is now available */
   pthread_cond_signal(&not_full);
 
-  /* Step 5: Release mutex lock */
   pthread_mutex_unlock(&lock);
   return ev;
 }
@@ -77,12 +66,13 @@ static void *consume(void *arg) {
     printf("  [Consumer] [%s] %s\n", ev.time, ev.text);
     if (fprintf(log_file, "[%s] %s\n", ev.time, ev.text) < 0 ||
         fflush(log_file) == EOF) {
-      if (!write_failed) perror("log write");
+      if (!write_failed)
+        perror("log write");
       write_failed = true;
     } else {
       written++;
     }
-    usleep(20000); /* slow consumer, so the bounded queue can fill up */
+    usleep(20000);
   }
   return NULL;
 }
@@ -159,7 +149,8 @@ static int run_producer_consumer(int num_producers, int events_per_producer) {
   ProducerArg args[16];
   int started = 0;
 
-  printf("\n=== Producer-consumer logger (%d producers, %d events each, queue size %d) ===\n",
+  printf("\n=== Producer-consumer logger (%d producers, %d events each, queue "
+         "size %d) ===\n",
          num_producers, events_per_producer, LOG_QUEUE_SIZE);
   if (logger_init() != 0)
     return 1;
@@ -184,9 +175,7 @@ static int run_producer_consumer(int num_producers, int events_per_producer) {
   return (started == num_producers && written_events == expected) ? 0 : 1;
 }
 
-int logger_demo(void) {
-  return run_producer_consumer(3, 5);
-}
+int logger_demo(void) { return run_producer_consumer(3, 5); }
 
 int logger_custom_run(void) {
   int p = 3, e = 5;
