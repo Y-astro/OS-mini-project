@@ -4,7 +4,7 @@ LDFLAGS = -pthread -lrt
 SRN1   ?= PES2UG25CS617
 SRN2   ?= PES2UG25CS609
 ZIP    ?= $(if $(SRN),$(SRN).zip,$(SRN1)_$(SRN2).zip)
-PDF    ?= $(if $(SRN),$(SRN).pdf,$(SRN1).pdf $(SRN2).pdf)
+PDF    ?= $(if $(SRN),$(SRN).pdf,$(SRN1)_$(SRN2).pdf)
 
 TARGET  = campuscompute
 SRCS    = main.c input.c scheduler.c logger.c ipc.c banker.c worker.c rlimit.c
